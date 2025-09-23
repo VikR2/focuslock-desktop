@@ -32,11 +32,26 @@ export const settings = pgTable("settings", {
   value: text("value").notNull(),
 });
 
+// Enum schemas for validation
+export const matchKindSchema = z.enum(['exe', 'package', 'lnk', 'path', 'regex']);
+export const blockModeSchema = z.enum(['hard', 'soft']);
+export const sessionStatusSchema = z.enum(['scheduled', 'running', 'completed', 'canceled']);
+
 // Insert schemas
 export const insertFavoriteSchema = createInsertSchema(favorites).omit({ id: true });
-export const insertBlockRuleSchema = createInsertSchema(blockRules).omit({ id: true });
-export const insertSessionSchema = createInsertSchema(sessions).omit({ id: true });
+export const insertBlockRuleSchema = createInsertSchema(blockRules).omit({ id: true }).extend({
+  matchKind: matchKindSchema,
+  mode: blockModeSchema,
+});
+export const insertSessionSchema = createInsertSchema(sessions).omit({ id: true }).extend({
+  status: sessionStatusSchema,
+});
 export const insertSettingSchema = createInsertSchema(settings);
+
+// Update schemas
+export const updateSessionSchema = insertSessionSchema.partial();
+export const updateBlockRuleSchema = insertBlockRuleSchema.partial();
+export const updateSettingSchema = insertSettingSchema.partial();
 
 // Types
 export type Favorite = typeof favorites.$inferSelect;

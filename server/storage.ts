@@ -66,6 +66,9 @@ export class MemStorage implements IStorage {
   }
 
   async removeFavorite(id: string): Promise<void> {
+    if (!this.favorites.has(id)) {
+      throw new Error(`Favorite ${id} not found`);
+    }
     this.favorites.delete(id);
   }
 
@@ -82,6 +85,9 @@ export class MemStorage implements IStorage {
   }
 
   async removeBlockRule(id: string): Promise<void> {
+    if (!this.blockRules.has(id)) {
+      throw new Error(`Block rule ${id} not found`);
+    }
     this.blockRules.delete(id);
   }
 

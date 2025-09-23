@@ -246,7 +246,7 @@ function Router() {
       appId: app.appId,
       displayName: app.displayName,
       pinnedOrder: favorites.length + 1,
-      iconHint: app.iconHint,
+      iconHint: app.iconHint || null,
       isBlocked: false,
       blockMode: 'soft',
     };
