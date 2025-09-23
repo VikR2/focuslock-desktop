@@ -20,9 +20,38 @@ Your FocusLock prototype has been successfully configured as a downloadable desk
 - All assets optimized for desktop distribution
 - 407KB JavaScript bundle with 70KB CSS
 
-## Building Locally
+## Building with Docker (Recommended)
 
-To build the desktop app on your local machine:
+Build your desktop app using Docker containers - no need to install Rust locally!
+
+### Prerequisites
+- **Docker** and **Docker Compose** installed
+- No other dependencies needed!
+
+### Container Build Commands
+
+1. **Build distributable desktop packages:**
+   ```bash
+   docker-compose up tauri-build
+   ```
+
+2. **Development mode** (test in container):
+   ```bash
+   docker-compose up tauri-dev
+   ```
+
+3. **Build using Docker directly:**
+   ```bash
+   # Build the Docker image
+   docker build -t focuslock-builder .
+   
+   # Run the build
+   docker run -v $(pwd):/app focuslock-builder
+   ```
+
+### Alternative: Local Building
+
+If you prefer to build locally without Docker:
 
 ### Prerequisites
 1. **Install Rust** (version 1.82+ required):
@@ -37,7 +66,7 @@ To build the desktop app on your local machine:
    **Linux (Ubuntu/Debian):**
    ```bash
    sudo apt update
-   sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+   sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libayatana-appindicator3-dev librsvg2-dev
    ```
    
    **macOS:**
@@ -51,14 +80,14 @@ To build the desktop app on your local machine:
    # WebView2 is usually pre-installed on Windows 11
    ```
 
-### Build Commands
+### Local Build Commands
 
 1. **Install dependencies:**
    ```bash
    npm install
    ```
 
-2. **Development mode** (test desktop app):
+2. **Development mode:**
    ```bash
    npx tauri dev
    ```

@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  tauri-build:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/src-tauri/target
+    working_dir: /app
+    environment:
+      - CARGO_TARGET_DIR=/app/src-tauri/target
+    command: >
+      sh -c "
+        npm run build &&
+        cd src-tauri &&
+        cargo tauri build
+      "
+    
+  tauri-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/src-tauri/target
+    working_dir: /app
+    ports:
+      - "5000:5000"
+    environment:
+      - CARGO_TARGET_DIR=/app/src-tauri/target
+    command: >
+      sh -c "
+        npm run build &&
+        cd src-tauri &&
+        cargo tauri dev --no-watch
+      "

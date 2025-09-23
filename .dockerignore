@@ -1,0 +1,15 @@
+node_modules
+dist
+src-tauri/target
+.git
+.cache
+.local
+.upm
+.config
+attached_assets
+.replit
+README.md
+*.log
+Dockerfile
+docker-compose.yml
+.dockerignore
