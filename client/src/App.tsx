@@ -28,6 +28,9 @@ import RulesTable from "@/components/RulesTable";
 import SettingsPanel from "@/components/SettingsPanel";
 import ThemeToggle from "@/components/ThemeToggle";
 
+// Hooks
+import { useBlockRules, useRemoveBlockRule, useUpdateBlockRule } from "@/hooks/useBlockRules";
+
 // Types
 import type { 
   BlockRule, 
@@ -99,9 +102,12 @@ function AppSidebar() {
 function Router() {
   const [selectedDuration, setSelectedDuration] = useState(25 * 60); // 25 minutes
   
+  // API hooks for block rules
+  const { data: blockRules = [], isLoading: rulesLoading } = useBlockRules();
+  const removeBlockRuleMutation = useRemoveBlockRule();
+  const updateBlockRuleMutation = useUpdateBlockRule();
+  
   // Mock favorites functionality removed - now handled by FavoritesBar component directly
-
-  // Mock block rules functionality removed - now handled by RulesTable component directly
 
   const [settings, setSettings] = useState({
     strictMode: false,
@@ -127,17 +133,31 @@ function Router() {
     // This will be handled by the AppSearch component directly
   };
 
-  // Rules handlers - now handled by RulesTable component directly
-  const handleDeleteRule = (id: string) => {
-    console.log(`Deleted rule ${id}`);
+  // Real API handlers for rules
+  const handleDeleteRule = async (id: string) => {
+    try {
+      await removeBlockRuleMutation.mutateAsync(id);
+    } catch (error) {
+      // Error handling is already done in the hook's onError
+      console.error('Failed to delete rule:', error);
+    }
   };
 
   const handleEditRule = (rule: BlockRule) => {
+    // TODO: Implement edit modal/form when needed
     console.log(`Edit rule for ${rule.appId}`);
   };
 
-  const handleToggleRuleMode = (id: string, mode: BlockMode) => {
-    console.log(`Toggled mode for rule ${id} to ${mode}`);
+  const handleToggleRuleMode = async (id: string, mode: BlockMode) => {
+    try {
+      await updateBlockRuleMutation.mutateAsync({
+        id,
+        updates: { mode },
+      });
+    } catch (error) {
+      // Error handling is already done in the hook's onError
+      console.error('Failed to toggle rule mode:', error);
+    }
   };
 
   // Settings handlers
@@ -197,10 +217,12 @@ function Router() {
               <div className="max-w-4xl mx-auto">
                 <h1 className="text-2xl font-semibold mb-6">Block Rules</h1>
                 <RulesTable 
-                  rules={[]}
+                  rules={blockRules as BlockRule[]}
                   onDeleteRule={handleDeleteRule}
                   onEditRule={handleEditRule}
                   onToggleMode={handleToggleRuleMode}
+                  isLoading={rulesLoading}
+                  isUpdating={removeBlockRuleMutation.isPending || updateBlockRuleMutation.isPending}
                 />
               </div>
             </div>

@@ -16,7 +16,39 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Shield, ShieldOff, Trash2, Edit } from "lucide-react";
+import { 
+  MoreHorizontal, 
+  Shield, 
+  ShieldOff, 
+  Trash2, 
+  Edit,
+  Gamepad2,
+  Globe,
+  Play,
+  Music,
+  MessageCircle,
+  Users,
+  FileText,
+  Code,
+  Monitor,
+  Loader2
+} from "lucide-react";
+
+// Helper function to get icon component
+const getIconComponent = (iconName: string) => {
+  const iconMap: Record<string, React.ComponentType<any>> = {
+    'gamepad-2': Gamepad2,
+    'globe': Globe,
+    'play': Play,
+    'music': Music,
+    'message-circle': MessageCircle,
+    'users': Users,
+    'file-text': FileText,
+    'code': Code,
+    'monitor': Monitor,
+  };
+  return iconMap[iconName] || Monitor;
+};
 import type { BlockRule, MatchKind, BlockMode } from "@shared/schema";
 
 interface RulesTableProps {
@@ -24,13 +56,17 @@ interface RulesTableProps {
   onDeleteRule: (id: string) => void;
   onEditRule: (rule: BlockRule) => void;
   onToggleMode: (id: string, mode: BlockMode) => void;
+  isLoading?: boolean;
+  isUpdating?: boolean;
 }
 
 export default function RulesTable({ 
   rules, 
   onDeleteRule, 
   onEditRule,
-  onToggleMode 
+  onToggleMode,
+  isLoading = false,
+  isUpdating = false
 }: RulesTableProps) {
   const getMatchKindLabel = (kind: MatchKind) => {
     const labels: Record<MatchKind, string> = {
@@ -48,20 +84,41 @@ export default function RulesTable({
   };
 
   const getAppIcon = (appId: string) => {
-    // todo: remove mock functionality - In real app, would show actual app icons
-    const icons: Record<string, string> = {
-      'discord.exe': '🎮',
-      'chrome.exe': '🌐',
-      'steam.exe': '🎯',
-      'spotify.exe': '🎵',
-      'slack.exe': '💬',
-      'teams.exe': '👥',
-      'notepad.exe': '📝',
-      'code.exe': '💻',
+    // Using Lucide icons for proper app representation
+    const iconMapping: Record<string, string> = {
+      'discord.exe': 'gamepad-2',
+      'chrome.exe': 'globe',
+      'steam.exe': 'play',
+      'spotify.exe': 'music',
+      'slack.exe': 'message-circle',
+      'teams.exe': 'users',
+      'notepad.exe': 'file-text',
+      'code.exe': 'code',
     };
-    return icons[appId] || '📱';
+    return iconMapping[appId] || 'monitor';
   };
 
+  // Show loading state
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Shield className="w-5 h-5 mr-2" />
+            Block Rules
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Loading block rules...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Show empty state
   if (rules.length === 0) {
     return (
       <Card>
@@ -104,8 +161,11 @@ export default function RulesTable({
             {rules.map((rule) => (
               <TableRow key={rule.id} className="hover-elevate">
                 <TableCell>
-                  <div className="w-6 h-6 flex items-center justify-center text-sm">
-                    {getAppIcon(rule.appId)}
+                  <div className="w-6 h-6 flex items-center justify-center">
+                    {(() => {
+                      const IconComponent = getIconComponent(getAppIcon(rule.appId));
+                      return <IconComponent className="w-4 h-4 text-foreground" />;
+                    })()}
                   </div>
                 </TableCell>
                 <TableCell>
@@ -137,9 +197,14 @@ export default function RulesTable({
                       <Button 
                         variant="ghost" 
                         size="icon"
+                        disabled={isUpdating}
                         data-testid={`button-rule-menu-${rule.id}`}
                       >
-                        <MoreHorizontal className="w-4 h-4" />
+                        {isUpdating ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <MoreHorizontal className="w-4 h-4" />
+                        )}
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
