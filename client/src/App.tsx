@@ -29,8 +29,9 @@ import SettingsPanel from "@/components/SettingsPanel";
 import ThemeToggle from "@/components/ThemeToggle";
 
 // Hooks
-import { useBlockRules, useRemoveBlockRule, useUpdateBlockRule } from "@/hooks/useBlockRules";
+import { useBlockRules, useRemoveBlockRule, useUpdateBlockRule, useAddBlockRule } from "@/hooks/useBlockRules";
 import { useSettings, useSetSetting, useSaveSettings } from "@/hooks/useSettings";
+import { useAddFavorite } from "@/hooks/useFavorites";
 
 // Types
 import type { 
@@ -107,6 +108,10 @@ function Router() {
   const { data: blockRules = [], isLoading: rulesLoading } = useBlockRules();
   const removeBlockRuleMutation = useRemoveBlockRule();
   const updateBlockRuleMutation = useUpdateBlockRule();
+  const addBlockRuleMutation = useAddBlockRule();
+  
+  // API hooks for favorites
+  const addFavoriteMutation = useAddFavorite();
   
   // API hooks for settings  
   const { data: settings, isLoading: settingsLoading, error: settingsError } = useSettings();
@@ -120,15 +125,34 @@ function Router() {
     console.log('Add favorite clicked - would open search/selection dialog');
   };
 
-  // Search handlers - now handled by individual components
-  const handleAddToBlockList = (app: AppSummary, mode: BlockMode) => {
-    console.log(`Added ${app.displayName} to block list with ${mode} mode`);
-    // This will be handled by the AppSearch component directly
+  // Real API handlers for app search actions
+  const handleAddToBlockList = async (app: AppSummary, mode: BlockMode) => {
+    try {
+      await addBlockRuleMutation.mutateAsync({
+        appId: app.appId,
+        matchKind: 'exe' as const,
+        mode: mode,
+      });
+      console.log(`Added ${app.displayName} to block list with ${mode} mode`);
+    } catch (error) {
+      // Error handling is already done in the hook's onError
+      console.error('Failed to add block rule:', error);
+    }
   };
 
-  const handleAddToFavorites = (app: AppSummary) => {
-    console.log(`Added ${app.displayName} to favorites`);
-    // This will be handled by the AppSearch component directly
+  const handleAddToFavorites = async (app: AppSummary) => {
+    try {
+      await addFavoriteMutation.mutateAsync({
+        appId: app.appId,
+        displayName: app.displayName,
+        exeOrTarget: app.exeOrTarget,
+        iconHint: app.iconHint,
+      });
+      console.log(`Added ${app.displayName} to favorites`);
+    } catch (error) {
+      // Error handling is already done in the hook's onError
+      console.error('Failed to add favorite:', error);
+    }
   };
 
   // Real API handlers for rules
@@ -213,7 +237,7 @@ function Router() {
                 <AppSearch 
                   onAddToBlockList={handleAddToBlockList}
                   onAddToFavorites={handleAddToFavorites}
-                  blockedApps={[]}
+                  blockedApps={blockRules.map(rule => rule.appId)}
                 />
               </div>
             </div>
