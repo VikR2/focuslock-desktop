@@ -6,7 +6,8 @@ import {
   type Session,
   type InsertSession,
   type Setting,
-  type InsertSetting
+  type InsertSetting,
+  type AppSummary
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -33,6 +34,10 @@ export interface IStorage {
   // Settings
   getSetting(key: string): Promise<Setting | undefined>;
   setSetting(setting: InsertSetting): Promise<Setting>;
+
+  // App discovery methods
+  searchApps(query: string): Promise<AppSummary[]>;
+  getAllApps(): Promise<AppSummary[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -40,12 +45,107 @@ export class MemStorage implements IStorage {
   private blockRules: Map<string, BlockRule>;
   private sessions: Map<string, Session>;
   private settings: Map<string, Setting>;
+  private mockApps: AppSummary[];
 
   constructor() {
     this.favorites = new Map();
     this.blockRules = new Map();
     this.sessions = new Map();
     this.settings = new Map();
+    
+    // Initialize mock apps for discovery
+    this.mockApps = [
+      {
+        appId: 'discord.exe',
+        displayName: 'Discord',
+        exeOrTarget: 'C:\\Users\\User\\AppData\\Local\\Discord\\Discord.exe',
+        iconHint: 'discord',
+      },
+      {
+        appId: 'chrome.exe',
+        displayName: 'Google Chrome',
+        exeOrTarget: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+        iconHint: 'chrome',
+      },
+      {
+        appId: 'steam.exe',
+        displayName: 'Steam',
+        exeOrTarget: 'C:\\Program Files (x86)\\Steam\\steam.exe',
+        iconHint: 'steam',
+      },
+      {
+        appId: 'spotify.exe',
+        displayName: 'Spotify',
+        exeOrTarget: 'C:\\Users\\User\\AppData\\Roaming\\Spotify\\Spotify.exe',
+        iconHint: 'spotify',
+      },
+      {
+        appId: 'slack.exe',
+        displayName: 'Slack',
+        exeOrTarget: 'C:\\Users\\User\\AppData\\Local\\slack\\slack.exe',
+        iconHint: 'slack',
+      },
+      {
+        appId: 'teams.exe',
+        displayName: 'Microsoft Teams',
+        exeOrTarget: 'C:\\Users\\User\\AppData\\Local\\Microsoft\\Teams\\Teams.exe',
+        iconHint: 'teams',
+      },
+      {
+        appId: 'notepad.exe',
+        displayName: 'Notepad',
+        exeOrTarget: 'C:\\Windows\\System32\\notepad.exe',
+        iconHint: 'notepad',
+      },
+      {
+        appId: 'code.exe',
+        displayName: 'Visual Studio Code',
+        exeOrTarget: 'C:\\Users\\User\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe',
+        iconHint: 'vscode',
+      },
+      {
+        appId: 'firefox.exe',
+        displayName: 'Mozilla Firefox',
+        exeOrTarget: 'C:\\Program Files\\Mozilla Firefox\\firefox.exe',
+        iconHint: 'firefox',
+      },
+      {
+        appId: 'excel.exe',
+        displayName: 'Microsoft Excel',
+        exeOrTarget: 'C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.exe',
+        iconHint: 'excel',
+      },
+      {
+        appId: 'word.exe',
+        displayName: 'Microsoft Word',
+        exeOrTarget: 'C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.exe',
+        iconHint: 'word',
+      },
+      {
+        appId: 'zoom.exe',
+        displayName: 'Zoom',
+        exeOrTarget: 'C:\\Users\\User\\AppData\\Roaming\\Zoom\\bin\\Zoom.exe',
+        iconHint: 'zoom',
+      },
+      {
+        appId: 'whatsapp.exe',
+        displayName: 'WhatsApp',
+        exeOrTarget: 'C:\\Users\\User\\AppData\\Local\\WhatsApp\\WhatsApp.exe',
+        iconHint: 'whatsapp',
+      },
+      {
+        appId: 'photoshop.exe',
+        displayName: 'Adobe Photoshop',
+        exeOrTarget: 'C:\\Program Files\\Adobe\\Adobe Photoshop 2024\\Photoshop.exe',
+        iconHint: 'photoshop',
+      },
+      {
+        appId: 'telegram.exe',
+        displayName: 'Telegram Desktop',
+        exeOrTarget: 'C:\\Users\\User\\AppData\\Roaming\\Telegram Desktop\\Telegram.exe',
+        iconHint: 'telegram',
+      },
+    ];
   }
 
   // Favorites
@@ -134,6 +234,26 @@ export class MemStorage implements IStorage {
     const setting: Setting = { ...insertSetting };
     this.settings.set(setting.key, setting);
     return setting;
+  }
+
+  // App discovery methods
+  async searchApps(query: string): Promise<AppSummary[]> {
+    if (!query || query.length < 1) {
+      return [];
+    }
+
+    const lowerQuery = query.toLowerCase();
+    return this.mockApps
+      .filter(app => 
+        app.displayName.toLowerCase().includes(lowerQuery) ||
+        app.appId.toLowerCase().includes(lowerQuery) ||
+        (app.exeOrTarget && app.exeOrTarget.toLowerCase().includes(lowerQuery))
+      )
+      .slice(0, 12); // Limit to 12 results for better UX
+  }
+
+  async getAllApps(): Promise<AppSummary[]> {
+    return [...this.mockApps]; // Return copy to prevent mutation
   }
 }
 

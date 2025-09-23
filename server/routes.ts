@@ -170,6 +170,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // App Discovery Routes
+  app.get("/api/apps/search", async (req, res) => {
+    try {
+      const { q } = req.query;
+      if (!q || typeof q !== 'string') {
+        res.status(400).json({ error: "Query parameter 'q' is required" });
+        return;
+      }
+
+      const apps = await storage.searchApps(q);
+      res.json(apps);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to search apps" });
+    }
+  });
+
+  app.get("/api/apps", async (req, res) => {
+    try {
+      const apps = await storage.getAllApps();
+      res.json(apps);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get apps" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

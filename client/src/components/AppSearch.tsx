@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Search, Plus, Shield, FolderOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useSearchApps } from "@/hooks/useAppSearch";
 import type { AppSummary, BlockMode } from "@shared/schema";
 
 interface SearchResult extends AppSummary {
@@ -23,99 +24,37 @@ export default function AppSearch({
   blockedApps = []
 }: AppSearchProps) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  
+  // Use real API instead of mock data
+  const { data: searchResults = [], isLoading, error } = useSearchApps(query);
+  
+  // Map API results to SearchResult format with blocked status
+  const results: SearchResult[] = searchResults.map(app => ({
+    ...app,
+    isBlocked: blockedApps.includes(app.appId)
+  }));
 
-  // todo: remove mock functionality - In real app, would search actual installed apps
-  const mockApps: SearchResult[] = [
-    {
-      appId: 'discord.exe',
-      displayName: 'Discord',
-      exeOrTarget: 'C:\\Users\\User\\AppData\\Local\\Discord\\Discord.exe',
-      iconHint: 'discord',
-    },
-    {
-      appId: 'chrome.exe',
-      displayName: 'Google Chrome',
-      exeOrTarget: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-      iconHint: 'chrome',
-    },
-    {
-      appId: 'steam.exe',
-      displayName: 'Steam',
-      exeOrTarget: 'C:\\Program Files (x86)\\Steam\\steam.exe',
-      iconHint: 'steam',
-    },
-    {
-      appId: 'spotify.exe',
-      displayName: 'Spotify',
-      exeOrTarget: 'C:\\Users\\User\\AppData\\Roaming\\Spotify\\Spotify.exe',
-      iconHint: 'spotify',
-    },
-    {
-      appId: 'slack.exe',
-      displayName: 'Slack',
-      exeOrTarget: 'C:\\Users\\User\\AppData\\Local\\slack\\slack.exe',
-      iconHint: 'slack',
-    },
-    {
-      appId: 'teams.exe',
-      displayName: 'Microsoft Teams',
-      exeOrTarget: 'C:\\Users\\User\\AppData\\Local\\Microsoft\\Teams\\Teams.exe',
-      iconHint: 'teams',
-    },
-    {
-      appId: 'notepad.exe',
-      displayName: 'Notepad',
-      exeOrTarget: 'C:\\Windows\\System32\\notepad.exe',
-      iconHint: 'notepad',
-    },
-    {
-      appId: 'code.exe',
-      displayName: 'Visual Studio Code',
-      exeOrTarget: 'C:\\Users\\User\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe',
-      iconHint: 'vscode',
-    },
-  ];
-
-  useEffect(() => {
-    if (query.length >= 2) {
-      setIsLoading(true);
-      
-      // Simulate search delay
-      const timer = setTimeout(() => {
-        const filtered = mockApps.filter(app => 
-          app.displayName.toLowerCase().includes(query.toLowerCase()) ||
-          app.appId.toLowerCase().includes(query.toLowerCase())
-        ).map(app => ({
-          ...app,
-          isBlocked: blockedApps.includes(app.appId)
-        }));
-        
-        setResults(filtered.slice(0, 8)); // Limit to 8 results
-        setIsLoading(false);
-      }, 200);
-
-      return () => clearTimeout(timer);
-    } else {
-      setResults([]);
-      setIsLoading(false);
-    }
-  }, [query, blockedApps]);
-
-  const getAppIcon = (appId: string) => {
-    // todo: remove mock functionality - In real app, would show actual app icons
+  const getAppIcon = (iconHint: string | undefined) => {
+    // Use iconHint from API or fallback to generic app icon
+    // In a real Windows app, this would show actual app icons
     const icons: Record<string, string> = {
-      'discord.exe': '🎮',
-      'chrome.exe': '🌐',
-      'steam.exe': '🎯',
-      'spotify.exe': '🎵',
-      'slack.exe': '💬',
-      'teams.exe': '👥',
-      'notepad.exe': '📝',
-      'code.exe': '💻',
+      'discord': '🎮',
+      'chrome': '🌐',
+      'steam': '🎯',
+      'spotify': '🎵',
+      'slack': '💬',
+      'teams': '👥',
+      'notepad': '📝',
+      'vscode': '💻',
+      'firefox': '🦊',
+      'excel': '📊',
+      'word': '📄',
+      'zoom': '🎥',
+      'whatsapp': '💬',
+      'photoshop': '🎨',
+      'telegram': '✈️',
     };
-    return icons[appId] || '📱';
+    return icons[iconHint || ''] || '📱';
   };
 
   return (
@@ -141,7 +80,13 @@ export default function AppSearch({
       {query.length >= 2 && (
         <Card>
           <CardContent className="p-4">
-            {results.length === 0 && !isLoading ? (
+            {error ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Search className="w-8 h-8 mx-auto mb-2 opacity-50 text-destructive" />
+                <p className="text-destructive">Error searching apps</p>
+                <p className="text-xs mt-1">Please try again</p>
+              </div>
+            ) : results.length === 0 && !isLoading ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
                 <p>No apps found for "{query}"</p>
@@ -159,7 +104,7 @@ export default function AppSearch({
                   >
                     <div className="flex items-center space-x-3 flex-1">
                       <div className="w-8 h-8 flex items-center justify-center text-lg">
-                        {getAppIcon(app.appId)}
+                        {getAppIcon(app.iconHint)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-2">
