@@ -36,15 +36,7 @@ import type {
   SessionStatus 
 } from "@shared/schema";
 
-interface FavoriteApp {
-  id: string;
-  appId: string;
-  displayName: string;
-  pinnedOrder: number | null;
-  iconHint: string | null;
-  isBlocked: boolean;
-  blockMode: BlockMode;
-}
+// Removed FavoriteApp interface - now handled by individual components
 
 function AppSidebar() {
   const menuItems = [
@@ -107,51 +99,9 @@ function AppSidebar() {
 function Router() {
   const [selectedDuration, setSelectedDuration] = useState(25 * 60); // 25 minutes
   
-  // todo: remove mock functionality - In real app, would fetch from backend
-  const [favorites, setFavorites] = useState<FavoriteApp[]>([
-    {
-      id: '1',
-      appId: 'discord.exe',
-      displayName: 'Discord',
-      pinnedOrder: 1,
-      iconHint: 'discord',
-      isBlocked: true,
-      blockMode: 'hard',
-    },
-    {
-      id: '2', 
-      appId: 'chrome.exe',
-      displayName: 'Google Chrome',
-      pinnedOrder: 2,
-      iconHint: 'chrome',
-      isBlocked: false,
-      blockMode: 'soft',
-    },
-    {
-      id: '3',
-      appId: 'steam.exe', 
-      displayName: 'Steam',
-      pinnedOrder: 3,
-      iconHint: 'steam',
-      isBlocked: true,
-      blockMode: 'soft',
-    },
-  ]);
+  // Mock favorites functionality removed - now handled by FavoritesBar component directly
 
-  const [blockRules, setBlockRules] = useState<BlockRule[]>([
-    {
-      id: '1',
-      appId: 'discord.exe',
-      matchKind: 'exe',
-      mode: 'hard',
-    },
-    {
-      id: '3',
-      appId: 'steam.exe',
-      matchKind: 'exe',
-      mode: 'soft',
-    },
-  ]);
+  // Mock block rules functionality removed - now handled by RulesTable component directly
 
   const [settings, setSettings] = useState({
     strictMode: false,
@@ -162,88 +112,23 @@ function Router() {
   });
 
 
-  // Favorites handlers
-  const handleToggleFavoriteBlock = (appId: string) => {
-    setFavorites(prev => prev.map(fav => 
-      fav.appId === appId ? { ...fav, isBlocked: !fav.isBlocked } : fav
-    ));
-    
-    // Sync with block rules
-    const favorite = favorites.find(f => f.appId === appId);
-    if (favorite?.isBlocked) {
-      // Remove from block rules
-      setBlockRules(prev => prev.filter(rule => rule.appId !== appId));
-    } else {
-      // Add to block rules
-      const newRule: BlockRule = {
-        id: Date.now().toString(),
-        appId,
-        matchKind: 'exe',
-        mode: favorite?.blockMode || 'soft',
-      };
-      setBlockRules(prev => [...prev, newRule]);
-    }
-    console.log(`Toggled block for ${appId}`);
-  };
-
-  const handleToggleFavoriteMode = (appId: string, mode: BlockMode) => {
-    setFavorites(prev => prev.map(fav => 
-      fav.appId === appId ? { ...fav, blockMode: mode } : fav
-    ));
-    
-    // Sync with block rules
-    setBlockRules(prev => prev.map(rule => 
-      rule.appId === appId ? { ...rule, mode } : rule
-    ));
-    console.log(`Changed block mode for ${appId} to ${mode}`);
-  };
-
-  const handleRemoveFavorite = (id: string) => {
-    setFavorites(prev => prev.filter(fav => fav.id !== id));
-    console.log(`Removed favorite ${id}`);
-  };
-
   const handleAddFavorite = () => {
     console.log('Add favorite clicked - would open search/selection dialog');
   };
 
-  // Search handlers
+  // Search handlers - now handled by individual components
   const handleAddToBlockList = (app: AppSummary, mode: BlockMode) => {
-    const newRule: BlockRule = {
-      id: Date.now().toString(),
-      appId: app.appId,
-      matchKind: 'exe',
-      mode,
-    };
-    setBlockRules(prev => [...prev, newRule]);
     console.log(`Added ${app.displayName} to block list with ${mode} mode`);
+    // This will be handled by the AppSearch component directly
   };
 
   const handleAddToFavorites = (app: AppSummary) => {
-    const newFavorite: FavoriteApp = {
-      id: Date.now().toString(),
-      appId: app.appId,
-      displayName: app.displayName,
-      pinnedOrder: favorites.length + 1,
-      iconHint: app.iconHint || null,
-      isBlocked: false,
-      blockMode: 'soft',
-    };
-    setFavorites(prev => [...prev, newFavorite]);
     console.log(`Added ${app.displayName} to favorites`);
+    // This will be handled by the AppSearch component directly
   };
 
-  // Rules handlers
+  // Rules handlers - now handled by RulesTable component directly
   const handleDeleteRule = (id: string) => {
-    setBlockRules(prev => prev.filter(rule => rule.id !== id));
-    
-    // Sync with favorites
-    const rule = blockRules.find(r => r.id === id);
-    if (rule) {
-      setFavorites(prev => prev.map(fav => 
-        fav.appId === rule.appId ? { ...fav, isBlocked: false } : fav
-      ));
-    }
     console.log(`Deleted rule ${id}`);
   };
 
@@ -252,17 +137,6 @@ function Router() {
   };
 
   const handleToggleRuleMode = (id: string, mode: BlockMode) => {
-    setBlockRules(prev => prev.map(rule => 
-      rule.id === id ? { ...rule, mode } : rule
-    ));
-    
-    // Sync with favorites
-    const rule = blockRules.find(r => r.id === id);
-    if (rule) {
-      setFavorites(prev => prev.map(fav => 
-        fav.appId === rule.appId ? { ...fav, blockMode: mode } : fav
-      ));
-    }
     console.log(`Toggled mode for rule ${id} to ${mode}`);
   };
 
@@ -276,15 +150,11 @@ function Router() {
     console.log('Settings saved:', settings);
   };
 
-  const blockedAppIds = blockRules.map(rule => rule.appId);
+  // Blocked app IDs will be handled by AppSearch component directly
 
   return (
     <div className="flex h-screen w-full">
       <FavoritesBar 
-        favorites={favorites}
-        onToggleBlock={handleToggleFavoriteBlock}
-        onToggleMode={handleToggleFavoriteMode}
-        onRemoveFavorite={handleRemoveFavorite}
         onAddFavorite={handleAddFavorite}
       />
       
@@ -316,7 +186,7 @@ function Router() {
                 <AppSearch 
                   onAddToBlockList={handleAddToBlockList}
                   onAddToFavorites={handleAddToFavorites}
-                  blockedApps={blockedAppIds}
+                  blockedApps={[]}
                 />
               </div>
             </div>
@@ -327,7 +197,7 @@ function Router() {
               <div className="max-w-4xl mx-auto">
                 <h1 className="text-2xl font-semibold mb-6">Block Rules</h1>
                 <RulesTable 
-                  rules={blockRules}
+                  rules={[]}
                   onDeleteRule={handleDeleteRule}
                   onEditRule={handleEditRule}
                   onToggleMode={handleToggleRuleMode}

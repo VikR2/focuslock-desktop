@@ -9,15 +9,38 @@ import {
   Shield, 
   ShieldOff,
   Plus,
-  Monitor
+  Monitor,
+  Loader2,
+  Gamepad2,
+  Globe,
+  Play,
+  Music,
+  MessageCircle,
+  Users
 } from "lucide-react";
+
+// Helper function to get icon component
+const getIconComponent = (iconName: string) => {
+  const iconMap: Record<string, React.ComponentType<any>> = {
+    'gamepad-2': Gamepad2,
+    'globe': Globe,
+    'play': Play,
+    'music': Music,
+    'message-circle': MessageCircle,
+    'users': Users,
+    'monitor': Monitor,
+  };
+  return iconMap[iconName] || Monitor;
+};
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { Favorite, BlockMode } from "@shared/schema";
+import { useFavorites, useRemoveFavorite } from "@/hooks/useFavorites";
+import { useBlockRules, useAddBlockRule, useRemoveBlockRulesByAppId, useUpdateBlockRule } from "@/hooks/useBlockRules";
+import type { Favorite, BlockMode, BlockRule } from "@shared/schema";
 
 interface FavoriteApp extends Favorite {
   isBlocked: boolean;
@@ -25,33 +48,100 @@ interface FavoriteApp extends Favorite {
 }
 
 interface FavoritesBarProps {
-  favorites: FavoriteApp[];
-  onToggleBlock: (appId: string) => void;
-  onToggleMode: (appId: string, mode: BlockMode) => void;
-  onRemoveFavorite: (id: string) => void;
   onAddFavorite: () => void;
 }
 
 export default function FavoritesBar({ 
-  favorites, 
-  onToggleBlock, 
-  onToggleMode, 
-  onRemoveFavorite,
   onAddFavorite 
 }: FavoritesBarProps) {
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
+  
+  // Fetch data from APIs
+  const { data: favorites = [], isLoading: favoritesLoading, error: favoritesError } = useFavorites();
+  const { data: blockRules = [], isLoading: rulesLoading, error: rulesError } = useBlockRules();
+  
+  // Mutations
+  const removeFavoriteMutation = useRemoveFavorite();
+  const addBlockRuleMutation = useAddBlockRule();
+  const removeBlockRulesByAppIdMutation = useRemoveBlockRulesByAppId();
+  const updateBlockRuleMutation = useUpdateBlockRule();
+  
+  // Combine favorites with block rule status
+  const favoriteApps: FavoriteApp[] = (favorites as Favorite[]).map((favorite: Favorite) => {
+    const blockRule = (blockRules as BlockRule[]).find((rule: BlockRule) => rule.appId === favorite.appId);
+    return {
+      ...favorite,
+      isBlocked: !!blockRule,
+      blockMode: (blockRule?.mode as BlockMode) || 'soft',
+    };
+  });
+  
+  const handleToggleBlock = async (appId: string) => {
+    const hasBlockRule = (blockRules as BlockRule[]).some((rule: BlockRule) => rule.appId === appId);
+    
+    if (hasBlockRule) {
+      // Remove all block rules for this appId to prevent duplicates
+      await removeBlockRulesByAppIdMutation.mutateAsync(appId);
+    } else {
+      // Check for existing rule before adding to prevent duplicates
+      const existingRule = (blockRules as BlockRule[]).find((rule: BlockRule) => rule.appId === appId);
+      if (!existingRule) {
+        await addBlockRuleMutation.mutateAsync({
+          appId,
+          matchKind: 'exe',
+          mode: 'soft',
+        });
+      }
+    }
+  };
+  
+  const handleToggleMode = async (appId: string, mode: BlockMode) => {
+    const blockRule = (blockRules as BlockRule[]).find((rule: BlockRule) => rule.appId === appId);
+    if (blockRule) {
+      await updateBlockRuleMutation.mutateAsync({
+        id: blockRule.id,
+        updates: { mode },
+      });
+    }
+  };
+  
+  const handleRemoveFavorite = async (id: string) => {
+    await removeFavoriteMutation.mutateAsync(id);
+  };
+  
+  // Show loading state
+  if (favoritesLoading || rulesLoading) {
+    return (
+      <div className="w-16 bg-sidebar border-r border-sidebar-border flex flex-col py-4">
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-sidebar-foreground" />
+        </div>
+      </div>
+    );
+  }
+  
+  // Show error state if needed
+  if (favoritesError || rulesError) {
+    return (
+      <div className="w-16 bg-sidebar border-r border-sidebar-border flex flex-col py-4">
+        <div className="flex-1 flex items-center justify-center p-2">
+          <p className="text-xs text-destructive text-center">Failed to load</p>
+        </div>
+      </div>
+    );
+  }
 
   const getAppIcon = (appId: string) => {
-    // todo: remove mock functionality - In real app, would show actual app icons
-    const icons: Record<string, string> = {
-      'discord.exe': '🎮',
-      'chrome.exe': '🌐',
-      'steam.exe': '🎯',
-      'spotify.exe': '🎵',
-      'slack.exe': '💬',
-      'teams.exe': '👥',
+    // Using Lucide icons for proper app representation
+    const iconMapping: Record<string, string> = {
+      'discord.exe': 'gamepad-2',
+      'chrome.exe': 'globe',
+      'steam.exe': 'play',
+      'spotify.exe': 'music',
+      'slack.exe': 'message-circle',
+      'teams.exe': 'users',
     };
-    return icons[appId] || '📱';
+    return iconMapping[appId] || 'monitor';
   };
 
   return (
@@ -65,7 +155,14 @@ export default function FavoritesBar({
 
       {/* Favorites List */}
       <div className="flex-1 space-y-2 px-2">
-        {favorites.map((favorite, index) => (
+        {favoriteApps.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-32 text-center px-1">
+            <Monitor className="w-8 h-8 text-muted-foreground mb-2" />
+            <p className="text-xs text-muted-foreground">No favorites yet</p>
+            <p className="text-xs text-muted-foreground">Add apps to get started</p>
+          </div>
+        ) : (
+          favoriteApps.map((favorite, index) => (
           <div
             key={favorite.id}
             className="relative group"
@@ -82,8 +179,11 @@ export default function FavoritesBar({
               ${draggedItem === favorite.id ? 'opacity-50' : ''}
             `}>
               {/* App Icon */}
-              <div className="w-full h-full flex items-center justify-center text-lg">
-                {getAppIcon(favorite.appId)}
+              <div className="w-full h-full flex items-center justify-center">
+                {(() => {
+                  const IconComponent = getIconComponent(getAppIcon(favorite.appId));
+                  return <IconComponent className="w-6 h-6 text-sidebar-foreground" />;
+                })()}
               </div>
 
               {/* Block Status Indicator */}
@@ -112,7 +212,7 @@ export default function FavoritesBar({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" side="right">
                   <DropdownMenuItem 
-                    onClick={() => onToggleBlock(favorite.appId)}
+                    onClick={() => handleToggleBlock(favorite.appId)}
                     data-testid={`menu-toggle-block-${favorite.appId}`}
                   >
                     {favorite.isBlocked ? (
@@ -130,7 +230,7 @@ export default function FavoritesBar({
                   
                   {favorite.isBlocked && (
                     <DropdownMenuItem 
-                      onClick={() => onToggleMode(
+                      onClick={() => handleToggleMode(
                         favorite.appId, 
                         favorite.blockMode === 'hard' ? 'soft' : 'hard'
                       )}
@@ -151,7 +251,7 @@ export default function FavoritesBar({
                   )}
                   
                   <DropdownMenuItem 
-                    onClick={() => onRemoveFavorite(favorite.id)}
+                    onClick={() => handleRemoveFavorite(favorite.id)}
                     data-testid={`menu-remove-favorite-${favorite.appId}`}
                     className="text-destructive"
                   >
@@ -172,7 +272,8 @@ export default function FavoritesBar({
               )}
             </div>
           </div>
-        ))}
+          ))
+        )}
       </div>
 
       {/* Add Favorite Button */}
