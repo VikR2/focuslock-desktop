@@ -108,7 +108,11 @@ export class MemStorage implements IStorage {
 
   async createSession(insertSession: InsertSession): Promise<Session> {
     const id = randomUUID();
-    const session: Session = { ...insertSession, id };
+    const session: Session = { 
+      ...insertSession, 
+      id,
+      remainingSecs: insertSession.remainingSecs ?? null 
+    };
     this.sessions.set(id, session);
     return session;
   }
