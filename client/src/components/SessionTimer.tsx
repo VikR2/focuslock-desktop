@@ -2,45 +2,117 @@ import { useState, useEffect } from "react";
 import { Play, Pause, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { useCurrentSession, useCreateSession, useUpdateSession } from "@/hooks/useSession";
+import type { Session } from "@shared/schema";
 
 interface SessionTimerProps {
-  durationSecs: number;
-  isRunning: boolean;
-  onStart: () => void;
-  onPause: () => void;
-  onStop: () => void;
+  selectedDuration: number;
 }
 
-export default function SessionTimer({ 
-  durationSecs, 
-  isRunning, 
-  onStart, 
-  onPause, 
-  onStop 
-}: SessionTimerProps) {
-  const [remainingSecs, setRemainingSecs] = useState(durationSecs);
+export default function SessionTimer({ selectedDuration }: SessionTimerProps) {
+  const { data: currentSession, isLoading: isLoadingSession } = useCurrentSession();
+  const createSession = useCreateSession();
+  const updateSession = useUpdateSession();
+  
+  const [remainingSecs, setRemainingSecs] = useState(selectedDuration);
 
+  // Calculate remaining time based on current session
   useEffect(() => {
-    setRemainingSecs(durationSecs);
-  }, [durationSecs]);
+    if (currentSession && currentSession.status === 'running') {
+      const startTime = new Date(currentSession.startTime!).getTime();
+      const now = Date.now();
+      const elapsed = Math.floor((now - startTime) / 1000);
+      const remaining = Math.max(0, currentSession.durationSecs - elapsed);
+      setRemainingSecs(remaining);
+    } else if (currentSession && currentSession.status === 'paused') {
+      setRemainingSecs(currentSession.remainingSecs || selectedDuration);
+    } else {
+      setRemainingSecs(selectedDuration);
+    }
+  }, [currentSession, selectedDuration]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
-    if (isRunning && remainingSecs > 0) {
+    if (currentSession?.status === 'running' && remainingSecs > 0) {
       interval = setInterval(() => {
         setRemainingSecs(prev => {
           if (prev <= 1) {
-            onPause();
+            // Auto-complete session when time runs out
+            if (currentSession?.id) {
+              updateSession.mutate({
+                id: currentSession.id,
+                updates: { 
+                  status: 'completed',
+                  endTime: new Date().toISOString(),
+                  remainingSecs: 0
+                }
+              });
+            }
             return 0;
           }
+          
+          // Update remaining time in backend every 10 seconds
+          if (prev % 10 === 0 && currentSession?.id) {
+            updateSession.mutate({
+              id: currentSession.id,
+              updates: { remainingSecs: prev - 1 }
+            });
+          }
+          
           return prev - 1;
         });
       }, 1000);
     }
 
     return () => clearInterval(interval);
-  }, [isRunning, remainingSecs, onPause]);
+  }, [currentSession, remainingSecs, updateSession]);
+
+  const handleStartSession = async () => {
+    if (currentSession && currentSession.status === 'paused') {
+      // Resume paused session
+      updateSession.mutate({
+        id: currentSession.id,
+        updates: { 
+          status: 'running',
+          startTime: new Date().toISOString()
+        }
+      });
+    } else {
+      // Create new session
+      createSession.mutate({
+        durationSecs: selectedDuration,
+        remainingSecs: selectedDuration,
+        status: 'running',
+        startTime: new Date().toISOString(),
+      });
+    }
+  };
+
+  const handlePauseSession = () => {
+    if (currentSession?.id) {
+      updateSession.mutate({
+        id: currentSession.id,
+        updates: { 
+          status: 'paused',
+          remainingSecs
+        }
+      });
+    }
+  };
+
+  const handleStopSession = () => {
+    if (currentSession?.id) {
+      updateSession.mutate({
+        id: currentSession.id,
+        updates: { 
+          status: 'canceled',
+          endTime: new Date().toISOString(),
+          remainingSecs: selectedDuration
+        }
+      });
+    }
+  };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -48,8 +120,11 @@ export default function SessionTimer({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const durationSecs = currentSession?.durationSecs || selectedDuration;
   const progressPercent = ((durationSecs - remainingSecs) / durationSecs) * 100;
   const isLowTime = remainingSecs <= 300; // 5 minutes
+  const isRunning = currentSession?.status === 'running';
+  const isLoading = isLoadingSession || createSession.isPending || updateSession.isPending;
 
   return (
     <div className="flex flex-col items-center space-y-6 p-8">
@@ -89,19 +164,20 @@ export default function SessionTimer({
         {!isRunning ? (
           <Button 
             size="lg" 
-            onClick={onStart} 
+            onClick={handleStartSession} 
             data-testid="button-start-session"
-            disabled={remainingSecs === 0}
+            disabled={remainingSecs === 0 || isLoading}
           >
             <Play className="w-5 h-5 mr-2" />
-            Start Focus
+            {currentSession?.status === 'paused' ? 'Resume' : 'Start Focus'}
           </Button>
         ) : (
           <Button 
             size="lg" 
             variant="secondary" 
-            onClick={onPause}
+            onClick={handlePauseSession}
             data-testid="button-pause-session"
+            disabled={isLoading}
           >
             <Pause className="w-5 h-5 mr-2" />
             Pause
@@ -111,9 +187,9 @@ export default function SessionTimer({
         <Button 
           size="lg" 
           variant="outline" 
-          onClick={onStop}
+          onClick={handleStopSession}
           data-testid="button-stop-session"
-          disabled={!isRunning && remainingSecs === durationSecs}
+          disabled={(!isRunning && remainingSecs === durationSecs) || isLoading}
         >
           <Square className="w-5 h-5 mr-2" />
           Reset

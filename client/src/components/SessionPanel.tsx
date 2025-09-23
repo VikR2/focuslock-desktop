@@ -8,7 +8,6 @@ import { Clock, Settings } from "lucide-react";
 interface SessionPanelProps {
   selectedDuration: number;
   onDurationChange: (duration: number) => void;
-  sessionStatus: 'idle' | 'running' | 'paused';
   onStartSession: (duration: number) => void;
 }
 
@@ -20,8 +19,7 @@ const PRESET_DURATIONS = [
 
 export default function SessionPanel({ 
   selectedDuration, 
-  onDurationChange, 
-  sessionStatus,
+  onDurationChange,
   onStartSession 
 }: SessionPanelProps) {
   const [customMinutes, setCustomMinutes] = useState(25);
@@ -46,11 +44,6 @@ export default function SessionPanel({
         <CardTitle className="flex items-center">
           <Clock className="w-5 h-5 mr-2" />
           Focus Session
-          {sessionStatus === 'running' && (
-            <Badge variant="default" className="ml-2">
-              Active
-            </Badge>
-          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -66,7 +59,7 @@ export default function SessionPanel({
                 onClick={() => handlePresetSelect(preset.value)}
                 data-testid={`button-preset-${preset.value}`}
                 className="flex-col h-auto py-3"
-                disabled={sessionStatus === 'running'}
+                disabled={false}
               >
                 <span className="font-semibold">{preset.label}</span>
                 <span className="text-xs opacity-75">{preset.description}</span>
@@ -116,7 +109,7 @@ export default function SessionPanel({
               size="sm"
               onClick={() => setShowCustom(true)}
               data-testid="button-custom-duration"
-              disabled={sessionStatus === 'running'}
+              disabled={false}
               className="w-full"
             >
               <Settings className="w-4 h-4 mr-2" />
@@ -129,7 +122,7 @@ export default function SessionPanel({
         <Button
           size="lg"
           onClick={() => onStartSession(selectedDuration)}
-          disabled={sessionStatus === 'running'}
+          disabled={false}
           data-testid="button-start-focus-session"
           className="w-full"
         >

@@ -106,8 +106,6 @@ function AppSidebar() {
 
 function Router() {
   const [selectedDuration, setSelectedDuration] = useState(25 * 60); // 25 minutes
-  const [sessionStatus, setSessionStatus] = useState<'idle' | 'running' | 'paused'>('idle');
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
   
   // todo: remove mock functionality - In real app, would fetch from backend
   const [favorites, setFavorites] = useState<FavoriteApp[]>([
@@ -163,25 +161,6 @@ function Router() {
     hotkeysEnabled: true,
   });
 
-  // Session handlers
-  const handleStartSession = (duration: number) => {
-    setSelectedDuration(duration);
-    setSessionStatus('running');
-    setIsTimerRunning(true);
-    console.log(`Starting focus session for ${Math.floor(duration / 60)} minutes`);
-  };
-
-  const handlePauseSession = () => {
-    setSessionStatus('paused');
-    setIsTimerRunning(false);
-    console.log('Focus session paused');
-  };
-
-  const handleStopSession = () => {
-    setSessionStatus('idle');
-    setIsTimerRunning(false);
-    console.log('Focus session stopped');
-  };
 
   // Favorites handlers
   const handleToggleFavoriteBlock = (appId: string) => {
@@ -316,19 +295,14 @@ function Router() {
               <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="flex justify-center">
                   <SessionTimer 
-                    durationSecs={selectedDuration}
-                    isRunning={isTimerRunning}
-                    onStart={() => setIsTimerRunning(true)}
-                    onPause={handlePauseSession}
-                    onStop={handleStopSession}
+                    selectedDuration={selectedDuration}
                   />
                 </div>
                 <div className="flex justify-center">
                   <SessionPanel 
                     selectedDuration={selectedDuration}
                     onDurationChange={setSelectedDuration}
-                    sessionStatus={sessionStatus}
-                    onStartSession={handleStartSession}
+                    onStartSession={(duration: number) => setSelectedDuration(duration)}
                   />
                 </div>
               </div>
