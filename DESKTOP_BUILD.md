@@ -25,7 +25,7 @@ Your FocusLock prototype has been successfully configured as a downloadable desk
 To build the desktop app on your local machine:
 
 ### Prerequisites
-1. **Install Rust** (version 1.80+ required):
+1. **Install Rust** (version 1.82+ required):
    ```bash
    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
    source ~/.cargo/env
