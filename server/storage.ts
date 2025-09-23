@@ -101,7 +101,9 @@ export class MemStorage implements IStorage {
 
   // Sessions
   async getCurrentSession(): Promise<Session | undefined> {
-    return Array.from(this.sessions.values()).find(session => session.status === 'running');
+    return Array.from(this.sessions.values()).find(session => 
+      session.status === 'running' || session.status === 'paused'
+    );
   }
 
   async createSession(insertSession: InsertSession): Promise<Session> {

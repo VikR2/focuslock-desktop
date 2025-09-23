@@ -25,6 +25,7 @@ export const sessions = pgTable("sessions", {
   endUtc: integer("end_utc").notNull(),
   status: text("status").notNull(), // 'scheduled'|'running'|'completed'|'canceled'
   durationSecs: integer("duration_secs").notNull(),
+  remainingSecs: integer("remaining_secs"),
 });
 
 export const settings = pgTable("settings", {
@@ -35,7 +36,7 @@ export const settings = pgTable("settings", {
 // Enum schemas for validation
 export const matchKindSchema = z.enum(['exe', 'package', 'lnk', 'path', 'regex']);
 export const blockModeSchema = z.enum(['hard', 'soft']);
-export const sessionStatusSchema = z.enum(['scheduled', 'running', 'completed', 'canceled']);
+export const sessionStatusSchema = z.enum(['scheduled', 'running', 'paused', 'completed', 'canceled']);
 
 // Insert schemas
 export const insertFavoriteSchema = createInsertSchema(favorites).omit({ id: true });
@@ -66,7 +67,7 @@ export type InsertSetting = z.infer<typeof insertSettingSchema>;
 // Additional types for the app
 export type MatchKind = 'exe' | 'package' | 'lnk' | 'path' | 'regex';
 export type BlockMode = 'hard' | 'soft';
-export type SessionStatus = 'scheduled' | 'running' | 'completed' | 'canceled';
+export type SessionStatus = 'scheduled' | 'running' | 'paused' | 'completed' | 'canceled';
 
 export interface AppSummary {
   appId: string;

@@ -3,7 +3,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Session, InsertSession } from "@shared/schema";
 
 export function useCurrentSession() {
-  return useQuery({
+  return useQuery<Session | null>({
     queryKey: ["/api/sessions/current"],
   });
 }
@@ -15,7 +15,7 @@ export function useCreateSession() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sessions/current"] });
     },
   });
 }
@@ -27,7 +27,7 @@ export function useUpdateSession() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sessions/current"] });
     },
   });
 }

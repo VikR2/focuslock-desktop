@@ -19,13 +19,14 @@ export default function SessionTimer({ selectedDuration }: SessionTimerProps) {
   // Calculate remaining time based on current session
   useEffect(() => {
     if (currentSession && currentSession.status === 'running') {
-      const startTime = new Date(currentSession.startTime!).getTime();
+      const endTime = currentSession.endUtc * 1000; // Convert to milliseconds
       const now = Date.now();
-      const elapsed = Math.floor((now - startTime) / 1000);
-      const remaining = Math.max(0, currentSession.durationSecs - elapsed);
+      const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
       setRemainingSecs(remaining);
     } else if (currentSession && currentSession.status === 'paused') {
-      setRemainingSecs(currentSession.remainingSecs || selectedDuration);
+      // For paused sessions, use the stored remaining time
+      const remaining = currentSession.remainingSecs || currentSession.durationSecs;
+      setRemainingSecs(remaining);
     } else {
       setRemainingSecs(selectedDuration);
     }
@@ -44,21 +45,14 @@ export default function SessionTimer({ selectedDuration }: SessionTimerProps) {
                 id: currentSession.id,
                 updates: { 
                   status: 'completed',
-                  endTime: new Date().toISOString(),
-                  remainingSecs: 0
+                  endUtc: Math.floor(Date.now() / 1000)
                 }
               });
             }
             return 0;
           }
           
-          // Update remaining time in backend every 10 seconds
-          if (prev % 10 === 0 && currentSession?.id) {
-            updateSession.mutate({
-              id: currentSession.id,
-              updates: { remainingSecs: prev - 1 }
-            });
-          }
+          // No need to update remaining time in backend frequently
           
           return prev - 1;
         });
@@ -70,21 +64,25 @@ export default function SessionTimer({ selectedDuration }: SessionTimerProps) {
 
   const handleStartSession = async () => {
     if (currentSession && currentSession.status === 'paused') {
-      // Resume paused session
+      // Resume paused session with updated end time based on remaining seconds
+      const now = Math.floor(Date.now() / 1000);
       updateSession.mutate({
         id: currentSession.id,
         updates: { 
           status: 'running',
-          startTime: new Date().toISOString()
+          startUtc: now,
+          endUtc: now + remainingSecs,
+          remainingSecs: null
         }
       });
     } else {
       // Create new session
+      const now = Math.floor(Date.now() / 1000);
       createSession.mutate({
         durationSecs: selectedDuration,
-        remainingSecs: selectedDuration,
         status: 'running',
-        startTime: new Date().toISOString(),
+        startUtc: now,
+        endUtc: now + selectedDuration,
       });
     }
   };
@@ -95,7 +93,7 @@ export default function SessionTimer({ selectedDuration }: SessionTimerProps) {
         id: currentSession.id,
         updates: { 
           status: 'paused',
-          remainingSecs
+          remainingSecs: remainingSecs
         }
       });
     }
@@ -107,8 +105,7 @@ export default function SessionTimer({ selectedDuration }: SessionTimerProps) {
         id: currentSession.id,
         updates: { 
           status: 'canceled',
-          endTime: new Date().toISOString(),
-          remainingSecs: selectedDuration
+          endUtc: Math.floor(Date.now() / 1000)
         }
       });
     }
