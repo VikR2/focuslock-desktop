@@ -12,7 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Settings, Shield, Bell, Keyboard, Play } from "lucide-react";
+import { Settings, Shield, Bell, Keyboard, Play, Loader2, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface SettingsPanelProps {
   settings: {
@@ -24,15 +25,41 @@ interface SettingsPanelProps {
   };
   onSettingChange: (key: string, value: any) => void;
   onSave: () => void;
+  isLoading?: boolean;
+  isSaving?: boolean;
+  error?: Error | null;
 }
 
 export default function SettingsPanel({ 
   settings, 
   onSettingChange, 
-  onSave 
+  onSave,
+  isLoading = false,
+  isSaving = false,
+  error = null
 }: SettingsPanelProps) {
   const [passphrase, setPassphrase] = useState("");
   const [confirmPassphrase, setConfirmPassphrase] = useState("");
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <Card className="w-full max-w-2xl">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Settings className="w-5 h-5 mr-2" />
+            FocusLock Settings
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Loading settings...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const notificationOptions = [
     { value: 'frequent', label: 'Frequent (15m, 10m, 5m, 1m)' },
@@ -50,6 +77,16 @@ export default function SettingsPanel({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
+        
+        {/* Error Alert */}
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Failed to load settings: {error.message}
+            </AlertDescription>
+          </Alert>
+        )}
         
         {/* Strict Mode Section */}
         <div className="space-y-4">
@@ -203,8 +240,19 @@ export default function SettingsPanel({
 
         {/* Save Button */}
         <div className="flex justify-end">
-          <Button onClick={onSave} data-testid="button-save-settings">
-            Save Settings
+          <Button 
+            onClick={onSave} 
+            disabled={isSaving}
+            data-testid="button-save-settings"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save Settings'
+            )}
           </Button>
         </div>
       </CardContent>

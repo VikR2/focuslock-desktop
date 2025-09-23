@@ -30,6 +30,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 
 // Hooks
 import { useBlockRules, useRemoveBlockRule, useUpdateBlockRule } from "@/hooks/useBlockRules";
+import { useSettings, useSetSetting, useSaveSettings } from "@/hooks/useSettings";
 
 // Types
 import type { 
@@ -107,15 +108,12 @@ function Router() {
   const removeBlockRuleMutation = useRemoveBlockRule();
   const updateBlockRuleMutation = useUpdateBlockRule();
   
+  // API hooks for settings  
+  const { data: settings, isLoading: settingsLoading, error: settingsError } = useSettings();
+  const setSettingMutation = useSetSetting();
+  const saveSettingsMutation = useSaveSettings();
+  
   // Mock favorites functionality removed - now handled by FavoritesBar component directly
-
-  const [settings, setSettings] = useState({
-    strictMode: false,
-    autostart: true,
-    notificationCadence: 'normal',
-    defaultBlockMode: 'soft' as 'hard' | 'soft',
-    hotkeysEnabled: true,
-  });
 
 
   const handleAddFavorite = () => {
@@ -160,14 +158,23 @@ function Router() {
     }
   };
 
-  // Settings handlers
-  const handleSettingChange = (key: string, value: any) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
-    console.log(`Setting ${key} changed to:`, value);
+  // Real API handlers for settings
+  const handleSettingChange = async (key: string, value: any) => {
+    try {
+      await setSettingMutation.mutateAsync({ key, value });
+    } catch (error) {
+      // Error handling is already done in the hook's onError
+      console.error('Failed to update setting:', error);
+    }
   };
 
-  const handleSaveSettings = () => {
-    console.log('Settings saved:', settings);
+  const handleSaveSettings = async () => {
+    try {
+      await saveSettingsMutation.mutateAsync(settings);
+    } catch (error) {
+      // Error handling is already done in the hook's onError
+      console.error('Failed to save settings:', error);
+    }
   };
 
   // Blocked app IDs will be handled by AppSearch component directly
@@ -236,6 +243,9 @@ function Router() {
                   settings={settings}
                   onSettingChange={handleSettingChange}
                   onSave={handleSaveSettings}
+                  isLoading={settingsLoading}
+                  isSaving={setSettingMutation.isPending || saveSettingsMutation.isPending}
+                  error={settingsError as Error | null}
                 />
               </div>
             </div>
