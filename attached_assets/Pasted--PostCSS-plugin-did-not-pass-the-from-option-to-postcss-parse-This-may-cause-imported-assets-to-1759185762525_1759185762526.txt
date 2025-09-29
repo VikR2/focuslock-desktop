@@ -1,0 +1,14 @@
+ PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.                                                                                                                                                                                                                      
+tauri-build-windows-1  | ✓ 1737 modules transformed.
+tauri-build-windows-1  | rendering chunks...
+tauri-build-windows-1  | computing gzip size...
+tauri-build-windows-1  | ../dist/public/index.html                   2.40 kB │ gzip:   0.96 kB
+tauri-build-windows-1  | ../dist/public/assets/index-CPLmtSCp.css   70.33 kB │ gzip:  11.50 kB
+tauri-build-windows-1  | ../dist/public/assets/index-BIwQ_c6w.js   407.04 kB │ gzip: 125.89 kB                                                                                                                                                      
+tauri-build-windows-1  | ✓ built in 3.60s                                                                                                                                                                                                           
+tauri-build-windows-1  |                                                                                                                                                                                                                            
+tauri-build-windows-1  |   dist/index.js  18.0kb
+tauri-build-windows-1  |                                                                                                                                                                                                                            
+tauri-build-windows-1  | ⚡ Done in 29ms                                                                                                                                                                                                            
+tauri-build-windows-1  |        Error `tauri.conf.json` error on `bundle > windows > nsis`: {"installMode":"perMachine","allowDowngrades":true,"createDesktopShortcut":true,"createStartMenuShortcut":true} is not valid under any of the schemas listed in the 'anyOf' keyword
+tauri-build-windows-1 exited with code 1
