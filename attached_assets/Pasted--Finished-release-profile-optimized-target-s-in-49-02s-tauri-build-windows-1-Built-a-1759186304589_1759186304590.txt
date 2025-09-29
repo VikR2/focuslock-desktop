@@ -1,0 +1,16 @@
+ Finished `release` profile [optimized] target(s) in 49.02s
+tauri-build-windows-1  |        Built application at: /app/src-tauri/target/x86_64-pc-windows-msvc/release/focuslock.exe
+tauri-build-windows-1  |         Warn Cross-platform compilation is experimental and does not support all features. Please use a matching host system for full compatibility.
+tauri-build-windows-1  |         Warn Signing, by default, is only supported on Windows hosts, but you can specify a custom signing command in `bundler > windows > sign_command`, for now, skipping signing the installer...                       
+tauri-build-windows-1  |         Info Patching binary "/app/src-tauri/target/x86_64-pc-windows-msvc/release/focuslock.exe" for type msi                                                                                                             
+tauri-build-windows-1  |         Warn ignoring msi                                                                                                                                                                                                  
+tauri-build-windows-1  |         Info Patching binary "/app/src-tauri/target/x86_64-pc-windows-msvc/release/focuslock.exe" for type nsis
+tauri-build-windows-1  |         Info Verifying NSIS package                                                                                                                                                                                        
+tauri-build-windows-1  |  Downloading https://github.com/tauri-apps/nsis-tauri-utils/releases/download/nsis_tauri_utils-v0.5.1/nsis_tauri_utils.dll
+tauri-build-windows-1  |         Info validating hash                                                                                                                                                                                               
+tauri-build-windows-1  |         Info Target: x64
+tauri-build-windows-1  |      Running makensis to produce /app/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/FocusLock_1.0.0_x64-setup.exe                                                                                            
+tauri-build-windows-1  | warning 5202: -OUTPUTCHARSET is disabled for non Win32 platforms.
+tauri-build-windows-1  |         Warn Signing, by default, is only supported on Windows hosts, but you can specify a custom signing command in `bundler > windows > sign_command`, for now, skipping signing the installer...                       
+tauri-build-windows-1  |     Finished 1 bundle at:
+tauri-build-windows-1  |         /app/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/FocusLock_1.0.0_x64-setup.exe                
