@@ -8,10 +8,26 @@ echo "🚀 Building FocusLock Desktop App..."
 if command -v docker >/dev/null 2>&1; then
     echo "📦 Using Docker for containerized build..."
     
-    # Build using Docker Compose
-    docker-compose up tauri-build
-    
-    echo "✅ Build complete! Check src-tauri/target/release/bundle/ for distributable files"
+    # Determine build target
+    case "${1:-all}" in
+        "linux")
+            echo "🐧 Building Linux packages..."
+            docker-compose up tauri-build-linux
+            echo "✅ Linux build complete! Check src-tauri/target/release/bundle/"
+            ;;
+        "windows")
+            echo "🪟 Building Windows packages..."
+            docker-compose up tauri-build-windows
+            echo "✅ Windows build complete! Check src-tauri/target/x86_64-pc-windows-msvc/release/bundle/"
+            ;;
+        "all"|*)
+            echo "🌍 Building for all platforms..."
+            docker-compose up tauri-build-linux tauri-build-windows
+            echo "✅ All builds complete!"
+            echo "   Linux: src-tauri/target/release/bundle/"
+            echo "   Windows: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/"
+            ;;
+    esac
     
 else
     echo "❌ Docker not found. Please install Docker or build locally."

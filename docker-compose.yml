@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  tauri-build:
+  tauri-build-linux:
     build:
       context: .
       dockerfile: Dockerfile
@@ -17,6 +17,26 @@ services:
         npm run build &&
         cd src-tauri &&
         cargo tauri build
+      "
+
+  tauri-build-windows:
+    build:
+      context: .
+      dockerfile: Dockerfile.windows
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/src-tauri/target
+      - xwin-cache:/tmp/xwin-cache
+    working_dir: /app
+    environment:
+      - CARGO_TARGET_DIR=/app/src-tauri/target
+      - XWIN_CACHE_DIR=/tmp/xwin-cache
+    command: >
+      sh -c "
+        npm run build &&
+        cd src-tauri &&
+        cargo tauri build --runner cargo-xwin --target x86_64-pc-windows-msvc
       "
     
   tauri-dev:
@@ -38,3 +58,6 @@ services:
         cd src-tauri &&
         cargo tauri dev --no-watch
       "
+
+volumes:
+  xwin-cache:

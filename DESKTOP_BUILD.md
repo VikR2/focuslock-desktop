@@ -30,23 +30,30 @@ Build your desktop app using Docker containers - no need to install Rust locally
 
 ### Container Build Commands
 
-1. **Build distributable desktop packages:**
+1. **Build for all platforms** (Linux + Windows):
    ```bash
-   docker-compose up tauri-build
+   ./scripts/build.sh
+   # OR
+   docker-compose up tauri-build-linux tauri-build-windows
    ```
 
-2. **Development mode** (test in container):
+2. **Build for Linux only:**
+   ```bash
+   ./scripts/build.sh linux
+   # OR
+   docker-compose up tauri-build-linux
+   ```
+
+3. **Build for Windows only:**
+   ```bash
+   ./scripts/build.sh windows
+   # OR
+   docker-compose up tauri-build-windows
+   ```
+
+4. **Development mode** (test in container):
    ```bash
    docker-compose up tauri-dev
-   ```
-
-3. **Build using Docker directly:**
-   ```bash
-   # Build the Docker image
-   docker build -t focuslock-builder .
-   
-   # Run the build
-   docker run -v $(pwd):/app focuslock-builder
    ```
 
 ### Alternative: Local Building
@@ -100,18 +107,19 @@ If you prefer to build locally without Docker:
 ### Distribution Files
 
 After successful build, you'll find distributable files in:
-- **Linux:** `src-tauri/target/release/bundle/`
-  - `.deb` package (Ubuntu/Debian)
-  - `.rpm` package (Red Hat/Fedora) 
-  - `.AppImage` (universal Linux)
-  
-- **Windows:** `src-tauri/target/release/bundle/`
-  - `.msi` installer
-  - `.exe` portable executable
-  
-- **macOS:** `src-tauri/target/release/bundle/`
-  - `.dmg` disk image
-  - `.app` application bundle
+
+**Linux packages:** `src-tauri/target/release/bundle/`
+- `.deb` package (Ubuntu/Debian)
+- `.rpm` package (Red Hat/Fedora) 
+- `.AppImage` (universal Linux)
+
+**Windows packages:** `src-tauri/target/x86_64-pc-windows-msvc/release/bundle/`
+- `.exe` NSIS installer (includes desktop shortcuts)
+- `.exe` portable executable
+
+**macOS packages:** (requires macOS build environment)
+- `.dmg` disk image
+- `.app` application bundle
 
 ## Desktop App Features
 
