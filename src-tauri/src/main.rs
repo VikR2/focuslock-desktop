@@ -27,12 +27,13 @@ async fn get_installed_apps() -> Result<Vec<AppInfo>, String> {
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     
     let paths = vec![
-        (hklm, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
-        (hklm, r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
-        (hkcu, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+        (HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+        (HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
+        (HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
     ];
     
-    for (hkey, path) in paths {
+    for (hkey_type, path) in paths {
+        let hkey = RegKey::predef(hkey_type);
         if let Ok(uninstall_key) = hkey.open_subkey(path) {
             for key_name in uninstall_key.enum_keys().filter_map(|k| k.ok()) {
                 if let Ok(app_key) = uninstall_key.open_subkey(&key_name) {
@@ -77,18 +78,18 @@ async fn get_installed_apps() -> Result<Vec<AppInfo>, String> {
 #[cfg(target_os = "windows")]
 #[tauri::command]
 async fn get_running_processes() -> Result<Vec<AppInfo>, String> {
-    use sysinfo::{System, SystemExt, ProcessExt};
+    use sysinfo::{System, ProcessRefreshKind, ProcessesToUpdate};
     
     // Run in blocking thread using Tauri's runtime, only refresh processes
     tauri::async_runtime::spawn_blocking(|| {
         let mut sys = System::new();
-        sys.refresh_processes();
+        sys.refresh_processes(ProcessesToUpdate::All, ProcessRefreshKind::new());
     
     let mut processes = Vec::new();
     let mut seen_names = HashSet::new();
     
     for (_, process) in sys.processes() {
-        let name = process.name().to_string();
+        let name = process.name().to_string_lossy().to_string();
         
         // Skip system processes and duplicates
         if name.is_empty() || 
@@ -104,7 +105,7 @@ async fn get_running_processes() -> Result<Vec<AppInfo>, String> {
         seen_names.insert(name.clone());
         
         processes.push(AppInfo {
-            name: name.trim_end_matches(".exe").to_string(),
+            name: name.clone(),
             path: exe_path,
             icon: None,
         });
