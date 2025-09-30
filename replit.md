@@ -1,8 +1,12 @@
-# FocusLock Web Prototype
+# FocusLock
 
 ## Overview
 
-FocusLock is a web-based focus session manager designed as a productivity application. It helps users block distracting applications during timed focus sessions through customizable timers and application management. The system provides features for managing favorite applications, creating block rules for apps, running timed focus sessions, and configuring user preferences. The application follows Microsoft Fluent Design principles to maintain consistency with Windows productivity tools.
+FocusLock is a cross-platform productivity application available as both a web app and desktop application. It helps users block distracting applications during timed focus sessions through customizable timers and application management. The system provides features for managing favorite applications, creating block rules for apps, running timed focus sessions, and configuring user preferences. The application follows Microsoft Fluent Design principles to maintain consistency with Windows productivity tools.
+
+**Deployment Options:**
+- **Web App**: Browser-based, accessible via Replit deployment
+- **Desktop App**: Native Windows/Linux application with OS integration (Tauri + React + Rust)
 
 ## User Preferences
 
@@ -73,3 +77,43 @@ Preferred communication style: Simple, everyday language.
 - **clsx**: Conditional className utility
 - **nanoid**: Unique ID generation
 - **wouter**: Lightweight client-side routing
+
+## Desktop Application Architecture
+
+### Tauri Integration (Added: September 2025)
+- **Desktop Framework**: Tauri v2.4 for cross-platform desktop apps
+- **Rust Backend**: Native OS integration for Windows app detection and process monitoring
+- **Embedded Server**: Express backend auto-starts with desktop app, bundled as Tauri resources
+- **Build System**: Docker-based cross-compilation for Windows (cargo-xwin) and Linux packages
+
+### Desktop-Specific Features
+- **Windows Integration**:
+  - Registry-based installed app detection using `winreg` crate
+  - Real-time process monitoring with `sysinfo` crate  
+  - Native Windows notifications
+  - NSIS installer packaging
+
+- **Backend Auto-Start**:
+  - Rust spawns Node.js process on app launch (`node dist/index.js`)
+  - Health check polling (`/api/health`) ensures backend readiness
+  - Graceful process cleanup on app exit
+  - Requires Node.js installed on target system
+
+### Build Configuration
+- **Cross-Platform Builds**: Docker Compose orchestration for Windows and Linux
+- **Frontend**: Vite builds React app to `dist/public/`
+- **Backend**: ESBuild bundles Express server to `dist/index.js`
+- **Packaging**: Tauri bundles both frontend and backend as single installer
+- **Output Formats**: 
+  - Windows: `.exe` NSIS installer
+  - Linux: `.deb` package
+
+### Key Files
+- `src-tauri/src/main.rs`: Rust main with backend spawning and health checks
+- `src-tauri/tauri.conf.json`: Tauri configuration with resource bundling
+- `src-tauri/Cargo.toml`: Rust dependencies (winreg, sysinfo, reqwest, tokio)
+- `Dockerfile.windows`: Windows cross-compilation container
+- `Dockerfile.linux`: Linux build container
+- `docker-compose.yml`: Multi-platform build orchestration
+- `BUILD.md`: Detailed build instructions
+- `DESKTOP_APP.md`: User installation and usage guide
