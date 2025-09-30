@@ -23,9 +23,6 @@ async fn get_installed_apps() -> Result<Vec<AppInfo>, String> {
         let mut seen_names = HashSet::new();
     
     // Check both HKLM and HKCU for installed applications
-    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
-    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-    
     let paths = vec![
         (HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
         (HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
@@ -78,12 +75,12 @@ async fn get_installed_apps() -> Result<Vec<AppInfo>, String> {
 #[cfg(target_os = "windows")]
 #[tauri::command]
 async fn get_running_processes() -> Result<Vec<AppInfo>, String> {
-    use sysinfo::{System, ProcessRefreshKind, ProcessesToUpdate};
+    use sysinfo::{System, ProcessesToUpdate};
     
     // Run in blocking thread using Tauri's runtime, only refresh processes
     tauri::async_runtime::spawn_blocking(|| {
         let mut sys = System::new();
-        sys.refresh_processes(ProcessesToUpdate::All, ProcessRefreshKind::new());
+        sys.refresh_processes(ProcessesToUpdate::All);
     
     let mut processes = Vec::new();
     let mut seen_names = HashSet::new();

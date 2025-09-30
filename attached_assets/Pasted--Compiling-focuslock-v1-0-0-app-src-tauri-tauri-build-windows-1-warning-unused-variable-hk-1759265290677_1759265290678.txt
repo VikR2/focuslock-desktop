@@ -1,0 +1,35 @@
+ Compiling focuslock v1.0.0 (/app/src-tauri)
+tauri-build-windows-1  | warning: unused variable: `hklm`
+tauri-build-windows-1  |   --> src/main.rs:26:9
+tauri-build-windows-1  |    |                                                                                                                                                                                                                                                                                                                                                              
+tauri-build-windows-1  | 26 |     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);                                                                                                                                                                                                                                                                                                           
+tauri-build-windows-1  |    |         ^^^^ help: if this is intentional, prefix it with an underscore: `_hklm`
+tauri-build-windows-1  |    |                                                                                                                                                                                                                                                                                                                                                              
+tauri-build-windows-1  |    = note: `#[warn(unused_variables)]` on by default                                                                                                                                                                                                                                                                                                              
+tauri-build-windows-1  |                                                                                                                                                                                                                                                                                                                                                                   
+tauri-build-windows-1  | warning: unused variable: `hkcu`                                                                                                                                                                                                                                                                                                                                  
+tauri-build-windows-1  |   --> src/main.rs:27:9                                                                                                                                                                                                                                                                                                                                            
+tauri-build-windows-1  |    |
+tauri-build-windows-1  | 27 |     let hkcu = RegKey::predef(HKEY_CURRENT_USER);                                                                                                                                                                                                                                                                                                            
+tauri-build-windows-1  |
+tauri-build-windows-1  | error[E0061]: this method takes 1 argument but 2 arguments were supplied
+tauri-build-windows-1  |    --> src/main.rs:86:13
+tauri-build-windows-1  |     |
+tauri-build-windows-1  |  86 |         sys.refresh_processes(ProcessesToUpdate::All, ProcessRefreshKind::new());
+tauri-build-windows-1  |     |             ^^^^^^^^^^^^^^^^^                         ------------------------- unexpected argument #2 of type `ProcessRefreshKind`
+tauri-build-windows-1  |     |
+tauri-build-windows-1  | note: method defined here
+tauri-build-windows-1  |    --> /usr/local/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sysinfo-0.31.4/src/common/system.rs:287:12
+tauri-build-windows-1  |     |
+tauri-build-windows-1  | 287 |     pub fn refresh_processes(&mut self, processes_to_update: ProcessesToUpdate<'_>) -> usize {
+tauri-build-windows-1  |     |            ^^^^^^^^^^^^^^^^^
+tauri-build-windows-1  | help: remove the extra argument
+tauri-build-windows-1  |     |
+tauri-build-windows-1  |  86 -         sys.refresh_processes(ProcessesToUpdate::All, ProcessRefreshKind::new());
+tauri-build-windows-1  |  86 +         sys.refresh_processes(ProcessesToUpdate::All);
+tauri-build-windows-1  |     |
+tauri-build-windows-1  |
+tauri-build-windows-1  | For more information about this error, try `rustc --explain E0061`.
+tauri-build-windows-1  | warning: `focuslock` (bin "focuslock") generated 2 warnings
+tauri-build-windows-1  | error: could not compile `focuslock` (bin "focuslock") due to 1 previous error; 2 warnings emitted
+tauri-build-windows-1  |        Error failed to build app:
