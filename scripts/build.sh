@@ -13,19 +13,31 @@ if command -v docker >/dev/null 2>&1; then
         "linux")
             echo "🐧 Building Linux packages..."
             docker-compose up tauri-build-linux
-            echo "✅ Linux build complete! Check src-tauri/target/release/bundle/"
+            echo ""
+            echo "✅ Linux build complete!"
+            echo "📦 Packages available in: releases/linux/"
+            ls -lh releases/linux/ 2>/dev/null || true
             ;;
         "windows")
             echo "🪟 Building Windows packages..."
             docker-compose up tauri-build-windows
-            echo "✅ Windows build complete! Check src-tauri/target/x86_64-pc-windows-msvc/release/bundle/"
+            echo ""
+            echo "✅ Windows build complete!"
+            echo "📦 Packages available in: releases/windows/"
+            ls -lh releases/windows/ 2>/dev/null || true
             ;;
         "all"|*)
             echo "🌍 Building for all platforms..."
             docker-compose up tauri-build-linux tauri-build-windows
+            echo ""
             echo "✅ All builds complete!"
-            echo "   Linux: src-tauri/target/release/bundle/"
-            echo "   Windows: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/"
+            echo ""
+            echo "📦 Your packages are ready in the releases/ folder:"
+            echo "   Linux:   releases/linux/"
+            echo "   Windows: releases/windows/"
+            echo ""
+            ls -lh releases/linux/ 2>/dev/null || true
+            ls -lh releases/windows/ 2>/dev/null || true
             ;;
     esac
     

@@ -16,7 +16,12 @@ services:
       sh -c "
         npm run build &&
         cd src-tauri &&
-        cargo tauri build
+        cargo tauri build &&
+        mkdir -p /app/releases/linux &&
+        cp -r target/release/bundle/deb/*.deb /app/releases/linux/ 2>/dev/null || true &&
+        cp -r target/release/bundle/rpm/*.rpm /app/releases/linux/ 2>/dev/null || true &&
+        cp -r target/release/bundle/appimage/*.AppImage /app/releases/linux/ 2>/dev/null || true &&
+        echo '✅ Linux packages copied to releases/linux/'
       "
 
   tauri-build-windows:
@@ -36,7 +41,10 @@ services:
       sh -c "
         npm run build &&
         cd src-tauri &&
-        cargo tauri build --runner cargo-xwin --target x86_64-pc-windows-msvc
+        cargo tauri build --runner cargo-xwin --target x86_64-pc-windows-msvc &&
+        mkdir -p /app/releases/windows &&
+        cp -r target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe /app/releases/windows/ 2>/dev/null || true &&
+        echo '✅ Windows packages copied to releases/windows/'
       "
     
   tauri-dev:
