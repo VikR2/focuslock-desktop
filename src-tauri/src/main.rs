@@ -3,6 +3,8 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::process::{Child, Command};
+use std::sync::Mutex;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct AppInfo {
@@ -129,15 +131,96 @@ fn get_running_processes() -> Result<Vec<AppInfo>, String> {
     Err("This feature is only available on Windows".to_string())
 }
 
+struct ServerProcess(Mutex<Option<Child>>);
+
+fn start_backend_server(app_handle: &tauri::AppHandle) -> Result<Child, String> {
+    // Check if Node.js is available
+    if Command::new("node").arg("--version").output().is_err() {
+        return Err("Node.js is not installed or not in PATH. The backend server requires Node.js to run.".to_string());
+    }
+
+    let resource_path = app_handle
+        .path()
+        .resource_dir()
+        .map_err(|e| format!("Failed to get resource dir: {}", e))?;
+    
+    let server_script = resource_path.join("dist").join("index.js");
+    
+    // Verify server script exists
+    if !server_script.exists() {
+        return Err(format!("Backend server script not found at: {}", server_script.display()));
+    }
+    
+    // Spawn Node.js process to run the server
+    let child = Command::new("node")
+        .arg(server_script)
+        .env("PORT", "5000")
+        .env("NODE_ENV", "production")
+        .spawn()
+        .map_err(|e| format!("Failed to start server: {}. Make sure Node.js is installed.", e))?;
+    
+    Ok(child)
+}
+
+async fn wait_for_backend() -> Result<(), String> {
+    use std::time::Duration;
+    
+    // Wait up to 10 seconds for backend to be ready
+    for i in 0..20 {
+        if let Ok(response) = reqwest::get("http://localhost:5000/api/health").await {
+            if response.status().is_success() {
+                println!("Backend is ready!");
+                return Ok(());
+            }
+        }
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }).await.ok();
+    }
+    
+    Err("Backend failed to start within timeout".to_string())
+}
+
 fn main() {
     tauri::Builder::default()
-        .setup(|_app| {
+        .setup(|app| {
+            // Start the backend server
+            match start_backend_server(app.handle()) {
+                Ok(child) => {
+                    app.manage(ServerProcess(Mutex::new(Some(child))));
+                    println!("Backend server started, waiting for it to be ready...");
+                    
+                    // Wait for backend to be ready
+                    tauri::async_runtime::block_on(async {
+                        if let Err(e) = wait_for_backend().await {
+                            eprintln!("Warning: {}", e);
+                        }
+                    });
+                }
+                Err(e) => {
+                    eprintln!("Warning: Failed to start backend server: {}", e);
+                    eprintln!("The app may not function correctly without the backend");
+                }
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             get_installed_apps,
             get_running_processes
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            // Cleanup on app exit
+            if let tauri::RunEvent::Exit = event {
+                if let Some(server_process) = app_handle.try_state::<ServerProcess>() {
+                    if let Ok(mut child) = server_process.0.lock() {
+                        if let Some(mut process) = child.take() {
+                            let _ = process.kill();
+                            println!("Backend server stopped");
+                        }
+                    }
+                }
+            }
+        });
 }
