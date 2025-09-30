@@ -1,7 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "FocusLock",
-  "version": "1.0.0",
   "identifier": "com.focuslock.desktop",
   "build": {
     "frontendDist": "../dist/public",
@@ -24,7 +23,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' data:"
+      "csp": "default-src 'self'; connect-src ipc: ipc://localhost; img-src 'self' data:"
     }
   },
   "bundle": {
