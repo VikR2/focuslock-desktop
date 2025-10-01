@@ -5,7 +5,7 @@
   "build": {
     "frontendDist": "../dist/public",
     "devUrl": "http://localhost:5000",
-    "beforeBuildCommand": "bash ./build-desktop.sh",
+    "beforeBuildCommand": "bash ../build-desktop.sh",
     "beforeDevCommand": ""
   },
   "app": {
