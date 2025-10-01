@@ -34,7 +34,8 @@ if [ "$PLATFORM" == "windows" ]; then
     docker build -f Dockerfile.windows -t focuslock-windows-builder .
     
     # Run Tauri build in container (no volume over target so outputs reach host)
-    docker run --rm \
+    # Use MSYS_NO_PATHCONV to prevent Git Bash path conversion on Windows
+    MSYS_NO_PATHCONV=1 docker run --rm \
         -v "$(pwd):/app" \
         -w /app/src-tauri \
         -e XWIN_ACCEPT_LICENSE=1 \
@@ -55,7 +56,8 @@ elif [ "$PLATFORM" == "linux" ]; then
     docker build -f Dockerfile -t focuslock-linux-builder .
     
     # Run Tauri build in container (no volume over target so outputs reach host)
-    docker run --rm \
+    # Use MSYS_NO_PATHCONV to prevent Git Bash path conversion on Windows
+    MSYS_NO_PATHCONV=1 docker run --rm \
         -v "$(pwd):/app" \
         -w /app/src-tauri \
         focuslock-linux-builder \
