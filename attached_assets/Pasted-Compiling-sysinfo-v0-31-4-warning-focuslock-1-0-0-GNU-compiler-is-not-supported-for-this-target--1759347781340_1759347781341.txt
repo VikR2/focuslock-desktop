@@ -1,0 +1,67 @@
+Compiling sysinfo v0.31.4
+warning: focuslock@1.0.0: GNU compiler is not supported for this target
+warning: focuslock@1.0.0: GNU compiler is not supported for this target
+warning: unused variable: `i`
+   --> src/main.rs:169:9
+    |
+169 |     for i in 0..20 {
+    |         ^ help: if this is intentional, prefix it with an underscore: `_i`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+error[E0599]: no method named `path` found for reference `&AppHandle` in the current scope
+   --> src/main.rs:143:10
+    |
+142 |       let resource_path = app_handle
+    |  _________________________-
+143 | |         .path()
+    | |         -^^^^ method not found in `&AppHandle`
+    | |_________|
+    |
+    |
+    = help: items from traits can only be used if the trait is in scope
+help: trait `Manager` which provides `path` is implemented but not in scope; perhaps you want to import it
+    |
+  4 + use tauri::Manager;
+    |
+
+error[E0599]: no method named `manage` found for mutable reference `&mut tauri::App` in the current scope
+    --> src/main.rs:190:25
+     |
+ 190 |                     app.manage(ServerProcess(Mutex::new(Some(child))));
+     |                         ^^^^^^
+     |
+     = help: items from traits can only be used if the trait is in scope
+help: there is a method `manager` with a similar name, but with different arguments
+    --> /usr/local/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.8.5/src/lib.rs:1094:5
+     |
+1094 |     fn manager(&self) -> &AppManager<R>;
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: trait `Manager` which provides `manage` is implemented but not in scope; perhaps you want to import it
+     |
+   4 + use tauri::Manager;
+     |
+
+error[E0599]: no method named `try_state` found for reference `&AppHandle` in the current scope
+   --> src/main.rs:216:58
+    |
+216 |                 if let Some(server_process) = app_handle.try_state::<ServerProcess>() {
+    |                                                          ^^^^^^^^^
+    |
+    = help: items from traits can only be used if the trait is in scope
+help: trait `Manager` which provides `try_state` is implemented but not in scope; perhaps you want to import it
+    |
+  4 + use tauri::Manager;
+    |
+help: there is a method `state` with a similar name
+    |
+216 -                 if let Some(server_process) = app_handle.try_state::<ServerProcess>() {
+216 +                 if let Some(server_process) = app_handle.state::<ServerProcess>() {
+    |
+
+For more information about this error, try `rustc --explain E0599`.
+warning: `focuslock` (bin "focuslock") generated 1 warning
+warning: focuslock@1.0.0: GNU compiler is not supported for this target
+warning: focuslock@1.0.0: GNU compiler is not supported for this target
+error: could not compile `focuslock` (bin "focuslock") due to 3 previous errors; 1 warning emitted
+       Error failed to build app:

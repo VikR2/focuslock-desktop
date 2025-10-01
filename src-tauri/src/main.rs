@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::process::{Child, Command};
 use std::sync::Mutex;
+use tauri::Manager;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct AppInfo {
@@ -166,7 +167,7 @@ async fn wait_for_backend() -> Result<(), String> {
     use std::time::Duration;
     
     // Wait up to 10 seconds for backend to be ready
-    for i in 0..20 {
+    for _i in 0..20 {
         if let Ok(response) = reqwest::get("http://localhost:5000/api/health").await {
             if response.status().is_success() {
                 println!("Backend is ready!");
