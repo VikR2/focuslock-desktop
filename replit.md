@@ -99,21 +99,21 @@ Preferred communication style: Simple, everyday language.
   - Graceful process cleanup on app exit
   - Requires Node.js installed on target system
 
-### Build Configuration
-- **Cross-Platform Builds**: Docker Compose orchestration for Windows and Linux
-- **Frontend**: Vite builds React app to `dist/public/`
-- **Backend**: ESBuild bundles Express server to `dist/index.js`
-- **Packaging**: Tauri bundles both frontend and backend as single installer
+### Build Configuration (Updated: October 2025)
+- **Simplified Build System**: Single `build.sh` script for both platforms
+- **Build Flow**:
+  1. Local build: `npm run build` creates frontend (`dist/public/`) and backend (`dist/index.js`)
+  2. Docker compilation: Tauri compiles Rust wrapper around pre-built files
+  3. Output: Installers copied to `./releases/windows/` or `./releases/linux/`
 - **Output Formats**: 
-  - Windows: `.exe` NSIS installer
-  - Linux: `.deb` package
+  - Windows: `.exe` NSIS installer (via cargo-xwin cross-compilation)
+  - Linux: `.deb`, `.rpm`, and `.AppImage` packages
 
 ### Key Files
+- `build.sh`: Single build script for all platforms (`./build.sh linux` or `./build.sh windows`)
 - `src-tauri/src/main.rs`: Rust main with backend spawning and health checks
 - `src-tauri/tauri.conf.json`: Tauri configuration with resource bundling
 - `src-tauri/Cargo.toml`: Rust dependencies (winreg, sysinfo, reqwest, tokio)
-- `Dockerfile.windows`: Windows cross-compilation container
-- `Dockerfile.linux`: Linux build container
-- `docker-compose.yml`: Multi-platform build orchestration
-- `BUILD.md`: Detailed build instructions
+- `Dockerfile`: Linux build container (Rust + Tauri only)
+- `Dockerfile.windows`: Windows cross-compilation container (Rust + Tauri + cargo-xwin)
 - `DESKTOP_APP.md`: User installation and usage guide
