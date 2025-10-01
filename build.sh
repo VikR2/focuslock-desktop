@@ -35,36 +35,14 @@ if [ "$PLATFORM" == "windows" ]; then
     
     # Run Tauri build in container (no volume over target so outputs reach host)
     # Use MSYS_NO_PATHCONV to prevent Git Bash path conversion on Windows
-    # Download Windows SDK and configure linker, then build with cargo-xwin
+    # cargo-xwin handles Windows SDK download and configuration automatically
     # Note: NSIS bundler is automatically used for Windows targets, no --bundles flag needed
     MSYS_NO_PATHCONV=1 docker run --rm \
         -v "$(pwd):/app" \
-        -w /app \
-        -e XWIN_ACCEPT_LICENSE=1 \
+        -w /app/src-tauri \
+        -e XWIN_ARCH=x86_64 \
         focuslock-windows-builder \
-        sh -c '
-            # Download Windows SDK to /xwin
-            xwin --accept-license splat --output /xwin
-            
-            # Create Cargo config for xwin linker (use lld-link for MSVC target)
-            mkdir -p .cargo
-            cat > .cargo/config.toml << EOF
-[target.x86_64-pc-windows-msvc]
-linker = "lld-link"
-ar = "llvm-lib"
-rustflags = [
-    "-Lnative=/xwin/crt/lib/x86_64",
-    "-Lnative=/xwin/sdk/lib/um/x86_64", 
-    "-Lnative=/xwin/sdk/lib/ucrt/x86_64"
-]
-EOF
-            
-            # Build with cargo-xwin
-            cd src-tauri && cargo xwin build --release --target x86_64-pc-windows-msvc
-            
-            # Package with Tauri
-            cargo tauri build --ci --target x86_64-pc-windows-msvc
-        '
+        sh -c "cargo tauri build --ci --runner cargo-xwin --target x86_64-pc-windows-msvc"
     
     # Copy outputs
     mkdir -p releases/windows
