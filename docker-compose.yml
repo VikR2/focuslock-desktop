@@ -38,8 +38,6 @@ services:
       - XWIN_CACHE_DIR=/tmp/xwin-cache
     command: >
       sh -c "
-        chmod +x /app/build-desktop.sh &&
-        /app/build-desktop.sh &&
         cd src-tauri &&
         cargo tauri build --runner cargo-xwin --target x86_64-pc-windows-msvc &&
         mkdir -p /app/releases/windows &&
