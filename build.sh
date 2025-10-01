@@ -30,6 +30,11 @@ echo ""
 if [ "$PLATFORM" == "windows" ]; then
     echo -e "${BLUE}Step 2: Building Windows installer with Docker...${NC}"
     
+    # Copy dist folder into src-tauri for bundling
+    echo "Copying dist folder into src-tauri for bundling..."
+    rm -rf src-tauri/dist
+    cp -r dist src-tauri/dist
+    
     # Build Docker image
     docker build -f Dockerfile.windows -t focuslock-windows-builder .
     
@@ -53,6 +58,11 @@ if [ "$PLATFORM" == "windows" ]; then
 
 elif [ "$PLATFORM" == "linux" ]; then
     echo -e "${BLUE}Step 2: Building Linux packages with Docker...${NC}"
+    
+    # Copy dist folder into src-tauri for bundling
+    echo "Copying dist folder into src-tauri for bundling..."
+    rm -rf src-tauri/dist
+    cp -r dist src-tauri/dist
     
     # Build Docker image
     docker build -f Dockerfile -t focuslock-linux-builder .
