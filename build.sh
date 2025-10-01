@@ -46,11 +46,12 @@ if [ "$PLATFORM" == "windows" ]; then
             # Download Windows SDK to /xwin
             xwin --accept-license splat --output /xwin
             
-            # Create Cargo config for xwin linker
+            # Create Cargo config for xwin linker (use lld-link for MSVC target)
             mkdir -p .cargo
             cat > .cargo/config.toml << EOF
 [target.x86_64-pc-windows-msvc]
-linker = "lld"
+linker = "lld-link"
+ar = "llvm-lib"
 rustflags = [
     "-Lnative=/xwin/crt/lib/x86_64",
     "-Lnative=/xwin/sdk/lib/um/x86_64", 
