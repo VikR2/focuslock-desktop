@@ -33,14 +33,13 @@ if [ "$PLATFORM" == "windows" ]; then
     # Build Docker image
     docker build -f Dockerfile.windows -t focuslock-windows-builder .
     
-    # Run Tauri build in container
+    # Run Tauri build in container (no volume over target so outputs reach host)
     docker run --rm \
         -v "$(pwd):/app" \
-        -v focuslock-cargo-cache:/usr/local/cargo/registry \
-        -v focuslock-target-cache:/app/src-tauri/target \
         -w /app/src-tauri \
+        -e XWIN_ACCEPT_LICENSE=1 \
         focuslock-windows-builder \
-        cargo tauri build --runner cargo-xwin --target x86_64-pc-windows-msvc
+        cargo xwin tauri build --target x86_64-pc-windows-msvc
     
     # Copy outputs
     mkdir -p releases/windows
@@ -55,11 +54,9 @@ elif [ "$PLATFORM" == "linux" ]; then
     # Build Docker image
     docker build -f Dockerfile -t focuslock-linux-builder .
     
-    # Run Tauri build in container
+    # Run Tauri build in container (no volume over target so outputs reach host)
     docker run --rm \
         -v "$(pwd):/app" \
-        -v focuslock-cargo-cache:/usr/local/cargo/registry \
-        -v focuslock-target-cache:/app/src-tauri/target \
         -w /app/src-tauri \
         focuslock-linux-builder \
         cargo tauri build
