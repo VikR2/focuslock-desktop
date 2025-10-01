@@ -12,8 +12,6 @@ services:
       - CARGO_TARGET_DIR=/app/src-tauri/target
     command: >
       sh -c "
-        chmod +x /app/build-desktop.sh &&
-        /app/build-desktop.sh &&
         cd src-tauri &&
         cargo tauri build &&
         mkdir -p /app/releases/linux &&
