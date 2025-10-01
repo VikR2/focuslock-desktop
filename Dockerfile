@@ -31,11 +31,8 @@ RUN npm install
 # Copy source code
 COPY . .
 
-# Build frontend first
-RUN npm run build
-
-# Set up Rust environment
-WORKDIR /app/src-tauri
+# Note: Build happens via Tauri's beforeBuildCommand during cargo tauri build
+# No need to run npm run build here as it will be triggered by Tauri
 
 # Build Tauri app
 CMD ["cargo", "tauri", "build"]
