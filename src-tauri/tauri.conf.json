@@ -38,7 +38,7 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "../dist/index.js"
+      "../dist"
     ]
   }
 }
