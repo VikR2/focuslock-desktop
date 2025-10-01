@@ -35,15 +35,14 @@ if [ "$PLATFORM" == "windows" ]; then
     
     # Run Tauri build in container (no volume over target so outputs reach host)
     # Use MSYS_NO_PATHCONV to prevent Git Bash path conversion on Windows
-    # Use cargo-xwin for cross-compilation by setting CARGO env var
+    # Use cargo-xwin which handles Windows SDK download and cross-compilation
     # Note: NSIS bundler is automatically used for Windows targets, no --bundles flag needed
     MSYS_NO_PATHCONV=1 docker run --rm \
         -v "$(pwd):/app" \
         -w /app/src-tauri \
         -e XWIN_ACCEPT_LICENSE=1 \
-        -e CARGO=cargo-xwin \
         focuslock-windows-builder \
-        cargo tauri build --target x86_64-pc-windows-msvc
+        sh -c "cargo xwin build --release --target x86_64-pc-windows-msvc && cargo tauri build --ci --target x86_64-pc-windows-msvc"
     
     # Copy outputs
     mkdir -p releases/windows
