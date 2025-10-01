@@ -18,9 +18,10 @@ RUN apt-get update && apt-get install -y \
     llvm \
     && rm -rf /var/lib/apt/lists/*
 
-# Update Rust to latest stable and install cargo-xwin
+# Update Rust to latest stable and install cargo-xwin + xwin CLI
 RUN rustup update stable && rustup default stable
 RUN cargo install cargo-xwin
+RUN cargo install xwin
 
 # Add Windows target
 RUN rustup target add x86_64-pc-windows-msvc
