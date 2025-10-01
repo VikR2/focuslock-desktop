@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   tauri-build-linux:
     build:
@@ -14,7 +12,8 @@ services:
       - CARGO_TARGET_DIR=/app/src-tauri/target
     command: >
       sh -c "
-        npm run build &&
+        chmod +x build-desktop.sh &&
+        ./build-desktop.sh &&
         cd src-tauri &&
         cargo tauri build &&
         mkdir -p /app/releases/linux &&
@@ -39,14 +38,15 @@ services:
       - XWIN_CACHE_DIR=/tmp/xwin-cache
     command: >
       sh -c "
-        npm run build &&
+        chmod +x build-desktop.sh &&
+        ./build-desktop.sh &&
         cd src-tauri &&
         cargo tauri build --runner cargo-xwin --target x86_64-pc-windows-msvc &&
         mkdir -p /app/releases/windows &&
         cp -r target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe /app/releases/windows/ 2>/dev/null || true &&
         echo '✅ Windows packages copied to releases/windows/'
       "
-    
+
   tauri-dev:
     build:
       context: .
