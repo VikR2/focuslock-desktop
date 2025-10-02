@@ -14,27 +14,21 @@ echo -e "${BLUE}FocusLock Desktop Build Script${NC}"
 echo "================================"
 echo ""
 
-# Step 1: Build frontend and backend locally
-echo -e "${BLUE}Step 1: Building frontend and backend...${NC}"
+# Step 1: Build frontend only
+echo -e "${BLUE}Step 1: Building frontend...${NC}"
 npx vite build
-./build-desktop-backend.sh
 
-if [ ! -f "dist/index.js" ] || [ ! -d "dist/public" ]; then
-    echo -e "${RED}Error: Build failed. Missing dist/index.js or dist/public${NC}"
+if [ ! -d "dist/public" ]; then
+    echo -e "${RED}Error: Build failed. Missing dist/public${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}✓ Frontend and backend built successfully${NC}"
+echo -e "${GREEN}✓ Frontend built successfully${NC}"
 echo ""
 
 # Step 2: Build desktop app with Docker
 if [ "$PLATFORM" == "windows" ]; then
     echo -e "${BLUE}Step 2: Building Windows installer with Docker...${NC}"
-    
-    # Copy dist folder into src-tauri for bundling
-    echo "Copying dist folder into src-tauri for bundling..."
-    rm -rf src-tauri/dist
-    cp -r dist src-tauri/dist
     
     # Build Docker image
     docker build -f Dockerfile.windows -t focuslock-windows-builder .
@@ -59,11 +53,6 @@ if [ "$PLATFORM" == "windows" ]; then
 
 elif [ "$PLATFORM" == "linux" ]; then
     echo -e "${BLUE}Step 2: Building Linux packages with Docker...${NC}"
-    
-    # Copy dist folder into src-tauri for bundling
-    echo "Copying dist folder into src-tauri for bundling..."
-    rm -rf src-tauri/dist
-    cp -r dist src-tauri/dist
     
     # Build Docker image
     docker build -f Dockerfile -t focuslock-linux-builder .

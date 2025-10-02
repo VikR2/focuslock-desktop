@@ -5,6 +5,18 @@ import type { Session, InsertSession } from "@shared/schema";
 export function useCurrentSession() {
   return useQuery<Session | null>({
     queryKey: ["/api/sessions/current"],
+    queryFn: async () => {
+      // Get all sessions and find the running one
+      const response = await apiRequest("GET", "/api/sessions");
+      const sessions: Session[] = await response.json();
+      
+      // Find the most recent running or scheduled session
+      const currentSession = sessions.find(
+        (s) => s.status === "running" || s.status === "scheduled"
+      );
+      
+      return currentSession || null;
+    },
   });
 }
 
@@ -16,6 +28,7 @@ export function useCreateSession() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sessions/current"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
     },
   });
 }
@@ -28,6 +41,7 @@ export function useUpdateSession() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sessions/current"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
     },
   });
 }
