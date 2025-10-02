@@ -16,7 +16,7 @@ echo ""
 
 # Step 1: Build frontend and backend locally
 echo -e "${BLUE}Step 1: Building frontend and backend...${NC}"
-vite build
+npx vite build
 ./build-desktop-backend.sh
 
 if [ ! -f "dist/index.js" ] || [ ! -d "dist/public" ]; then
