@@ -253,7 +253,7 @@ async fn start_session_monitor(
             }
             
             // Check every 2 seconds
-            tauri::async_runtime::sleep(Duration::from_secs(2)).await;
+            tokio::time::sleep(Duration::from_secs(2)).await;
         }
         
         // Ensure flag is reset when loop exits
