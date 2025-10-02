@@ -27,6 +27,7 @@ import AppSearch from "@/components/AppSearch";
 import RulesTable from "@/components/RulesTable";
 import SettingsPanel from "@/components/SettingsPanel";
 import ThemeToggle from "@/components/ThemeToggle";
+import { DebugPanel } from "@/components/DebugPanel";
 
 // Hooks
 import { useBlockRules, useRemoveBlockRule, useUpdateBlockRule, useAddBlockRule } from "@/hooks/useBlockRules";
@@ -145,7 +146,6 @@ function Router() {
       await addFavoriteMutation.mutateAsync({
         appId: app.appId,
         displayName: app.displayName,
-        exeOrTarget: app.exeOrTarget,
         iconHint: app.iconHint,
       });
       console.log(`Added ${app.displayName} to favorites`);
@@ -289,6 +289,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <DebugPanel />
         <SidebarProvider style={style as React.CSSProperties}>
           <div className="flex h-screen w-full">
             <AppSidebar />
