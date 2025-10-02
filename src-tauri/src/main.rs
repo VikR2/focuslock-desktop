@@ -257,10 +257,15 @@ async fn start_session_monitor(
                                     _ => process_name.to_lowercase().contains(&rule_exe_name.to_lowercase()),
                                 };
                                 
-                                if matches && rule.mode == "hard" {
-                                    // Kill the process
-                                    if process.kill_with(Signal::Kill).is_some() {
-                                        println!("[Monitor] Blocked and killed: {} (matched rule: {})", process_name, rule.app_id);
+                                if matches {
+                                    if rule.mode == "hard" {
+                                        // Hard mode: Kill the process
+                                        if process.kill_with(Signal::Kill).is_some() {
+                                            println!("[Monitor] HARD BLOCK - Killed: {} (rule: {})", process_name, rule.app_id);
+                                        }
+                                    } else if rule.mode == "soft" {
+                                        // Soft mode: Log warning only
+                                        println!("[Monitor] SOFT BLOCK - Warning: {} is running but not blocked (rule: {})", process_name, rule.app_id);
                                     }
                                 }
                             }
