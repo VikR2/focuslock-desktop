@@ -16,7 +16,8 @@ echo ""
 
 # Step 1: Build frontend and backend locally
 echo -e "${BLUE}Step 1: Building frontend and backend...${NC}"
-npm run build
+vite build
+./build-desktop-backend.sh
 
 if [ ! -f "dist/index.js" ] || [ ! -d "dist/public" ]; then
     echo -e "${RED}Error: Build failed. Missing dist/index.js or dist/public${NC}"
