@@ -151,7 +151,7 @@ async fn kill_process(process_name: String) -> Result<String, String> {
         
         let mut killed_count = 0;
         
-        for (pid, process) in sys.processes() {
+        for (_pid, process) in sys.processes() {
             let name = process.name().to_string_lossy().to_string();
             
             // Match process name (case-insensitive)
@@ -253,7 +253,7 @@ async fn start_session_monitor(
             }
             
             // Check every 2 seconds
-            tokio::time::sleep(Duration::from_secs(2)).await;
+            tauri::async_runtime::sleep(Duration::from_secs(2)).await;
         }
         
         // Ensure flag is reset when loop exits
