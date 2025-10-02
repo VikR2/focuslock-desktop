@@ -3,10 +3,17 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use tauri::Manager;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use tauri::{Manager, State};
 
 mod db;
 use db::DbState;
+
+// Global monitor state
+struct MonitorState {
+    is_running: Arc<AtomicBool>,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct AppInfo {
@@ -133,6 +140,142 @@ fn get_running_processes() -> Result<Vec<AppInfo>, String> {
     Err("This feature is only available on Windows".to_string())
 }
 
+#[cfg(target_os = "windows")]
+#[tauri::command]
+async fn kill_process(process_name: String) -> Result<String, String> {
+    use sysinfo::{System, ProcessesToUpdate, Signal};
+    
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut sys = System::new();
+        sys.refresh_processes(ProcessesToUpdate::All);
+        
+        let mut killed_count = 0;
+        
+        for (pid, process) in sys.processes() {
+            let name = process.name().to_string_lossy().to_string();
+            
+            // Match process name (case-insensitive)
+            if name.eq_ignore_ascii_case(&process_name) {
+                if process.kill_with(Signal::Kill).is_some() {
+                    killed_count += 1;
+                }
+            }
+        }
+        
+        if killed_count > 0 {
+            Ok(format!("Killed {} instance(s) of {}", killed_count, process_name))
+        } else {
+            Err(format!("Process '{}' not found", process_name))
+        }
+    })
+    .await
+    .map_err(|e| format!("Task error: {}", e))?
+}
+
+#[cfg(not(target_os = "windows"))]
+#[tauri::command]
+fn kill_process(_process_name: String) -> Result<String, String> {
+    Err("This feature is only available on Windows".to_string())
+}
+
+#[cfg(target_os = "windows")]
+#[tauri::command]
+async fn start_session_monitor(
+    app: tauri::AppHandle,
+    monitor: State<'_, MonitorState>,
+) -> Result<String, String> {
+    use sysinfo::{System, ProcessesToUpdate, Signal};
+    use std::time::Duration;
+    
+    // If already running, don't start again
+    if monitor.is_running.load(Ordering::Relaxed) {
+        return Ok("Monitor already running".to_string());
+    }
+    
+    monitor.is_running.store(true, Ordering::Relaxed);
+    let is_running = monitor.is_running.clone();
+    
+    // Spawn background monitoring task
+    tauri::async_runtime::spawn(async move {
+        println!("[Monitor] Starting session monitor loop");
+        
+        while is_running.load(Ordering::Relaxed) {
+            // Get database state from app handle
+            let db: State<DbState> = app.state();
+            
+            // Get active sessions
+            if let Ok(sessions) = db::get_sessions(db.clone()) {
+                let has_active_session = sessions.iter().any(|s| s.status == "running");
+                
+                if !has_active_session {
+                    // No active sessions - stop monitoring
+                    println!("[Monitor] No active sessions, stopping monitor");
+                    is_running.store(false, Ordering::Relaxed);
+                    break;
+                }
+                
+                // Get block rules
+                let db_for_rules: State<DbState> = app.state();
+                if let Ok(rules) = db::get_block_rules(db_for_rules) {
+                    let rules_clone = rules.clone();
+                    
+                    // Get running processes in blocking thread
+                    if let Ok(()) = tauri::async_runtime::spawn_blocking(move || {
+                        let mut sys = System::new();
+                        sys.refresh_processes(ProcessesToUpdate::All);
+                        
+                        for (_, process) in sys.processes() {
+                            let process_name = process.name().to_string_lossy().to_string();
+                            
+                            // Check if process matches any block rule
+                            for rule in &rules_clone {
+                                let matches = match rule.match_kind.as_str() {
+                                    "exe" => process_name.eq_ignore_ascii_case(&rule.app_id),
+                                    _ => process_name.to_lowercase().contains(&rule.app_id.to_lowercase()),
+                                };
+                                
+                                if matches && rule.mode == "hard" {
+                                    // Kill the process
+                                    let _ = process.kill_with(Signal::Kill);
+                                    println!("[Monitor] Blocked and killed: {}", process_name);
+                                }
+                            }
+                        }
+                    }).await {
+                        // Successfully checked processes
+                    }
+                }
+            } else {
+                // Database error - stop monitoring
+                println!("[Monitor] Database error, stopping monitor");
+                is_running.store(false, Ordering::Relaxed);
+                break;
+            }
+            
+            // Check every 2 seconds
+            tokio::time::sleep(Duration::from_secs(2)).await;
+        }
+        
+        // Ensure flag is reset when loop exits
+        is_running.store(false, Ordering::Relaxed);
+        println!("[Monitor] Session monitor loop stopped");
+    });
+    
+    Ok("Session monitor started".to_string())
+}
+
+#[cfg(not(target_os = "windows"))]
+#[tauri::command]
+fn start_session_monitor() -> Result<String, String> {
+    Err("This feature is only available on Windows".to_string())
+}
+
+#[tauri::command]
+fn stop_session_monitor(monitor: State<MonitorState>) -> Result<String, String> {
+    monitor.is_running.store(false, Ordering::Relaxed);
+    Ok("Session monitor stopped".to_string())
+}
+
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
@@ -148,13 +291,22 @@ fn main() {
             let db_state = DbState::new(db_path.to_str().unwrap())
                 .expect("Failed to initialize database");
             
+            // Initialize monitor state
+            let monitor_state = MonitorState {
+                is_running: Arc::new(AtomicBool::new(false)),
+            };
+            
             app.manage(db_state);
+            app.manage(monitor_state);
             
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             get_installed_apps,
             get_running_processes,
+            kill_process,
+            start_session_monitor,
+            stop_session_monitor,
             // Database commands
             db::get_favorites,
             db::create_favorite,

@@ -5,6 +5,19 @@ import { Progress } from "@/components/ui/progress";
 import { useCurrentSession, useCreateSession, useUpdateSession } from "@/hooks/useSession";
 import type { Session } from "@shared/schema";
 
+// Helper to call monitor commands (Tauri only)
+async function callMonitorCommand(command: 'start_session_monitor' | 'stop_session_monitor') {
+  try {
+    const tauriInvoke = (window as any).__TAURI__?.core?.invoke;
+    if (tauriInvoke) {
+      console.log(`[Monitor] Invoking: ${command}`);
+      await tauriInvoke(command);
+    }
+  } catch (error) {
+    console.error(`[Monitor] Failed to call ${command}:`, error);
+  }
+}
+
 interface SessionTimerProps {
   selectedDuration: number;
 }
@@ -47,6 +60,8 @@ export default function SessionTimer({ selectedDuration }: SessionTimerProps) {
                   status: 'completed',
                   endUtc: Math.floor(Date.now() / 1000)
                 }
+              }, {
+                onSuccess: () => callMonitorCommand('stop_session_monitor')
               });
             }
             return 0;
@@ -74,6 +89,8 @@ export default function SessionTimer({ selectedDuration }: SessionTimerProps) {
           endUtc: now + remainingSecs,
           remainingSecs: null
         }
+      }, {
+        onSuccess: () => callMonitorCommand('start_session_monitor')
       });
     } else {
       // Create new session
@@ -83,6 +100,8 @@ export default function SessionTimer({ selectedDuration }: SessionTimerProps) {
         status: 'running',
         startUtc: now,
         endUtc: now + selectedDuration,
+      }, {
+        onSuccess: () => callMonitorCommand('start_session_monitor')
       });
     }
   };
@@ -95,6 +114,8 @@ export default function SessionTimer({ selectedDuration }: SessionTimerProps) {
           status: 'paused',
           remainingSecs: remainingSecs
         }
+      }, {
+        onSuccess: () => callMonitorCommand('stop_session_monitor')
       });
     }
   };
@@ -107,6 +128,8 @@ export default function SessionTimer({ selectedDuration }: SessionTimerProps) {
           status: 'canceled',
           endUtc: Math.floor(Date.now() / 1000)
         }
+      }, {
+        onSuccess: () => callMonitorCommand('stop_session_monitor')
       });
     }
   };
