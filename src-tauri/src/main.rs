@@ -226,18 +226,42 @@ async fn start_session_monitor(
                         
                         for (_, process) in sys.processes() {
                             let process_name = process.name().to_string_lossy().to_string();
+                            let process_exe_path = process.exe()
+                                .and_then(|p| p.to_str())
+                                .unwrap_or("");
                             
                             // Check if process matches any block rule
                             for rule in &rules_clone {
+                                // Extract exe name from rule's app_id (could be path or exe name)
+                                let rule_exe_name = if rule.app_id.contains('\\') || rule.app_id.contains('/') {
+                                    // It's a path - extract the last component and add .exe if missing
+                                    let path_parts: Vec<&str> = rule.app_id.split(&['\\', '/'][..]).collect();
+                                    let last_part = path_parts.last().unwrap_or(&"");
+                                    if last_part.to_lowercase().ends_with(".exe") {
+                                        last_part.to_string()
+                                    } else {
+                                        format!("{}.exe", last_part)
+                                    }
+                                } else {
+                                    // Already an exe name
+                                    if rule.app_id.to_lowercase().ends_with(".exe") {
+                                        rule.app_id.clone()
+                                    } else {
+                                        format!("{}.exe", rule.app_id)
+                                    }
+                                };
+                                
                                 let matches = match rule.match_kind.as_str() {
-                                    "exe" => process_name.eq_ignore_ascii_case(&rule.app_id),
-                                    _ => process_name.to_lowercase().contains(&rule.app_id.to_lowercase()),
+                                    "exe" => process_name.eq_ignore_ascii_case(&rule_exe_name),
+                                    "path" => process_exe_path.to_lowercase().contains(&rule.app_id.to_lowercase()),
+                                    _ => process_name.to_lowercase().contains(&rule_exe_name.to_lowercase()),
                                 };
                                 
                                 if matches && rule.mode == "hard" {
                                     // Kill the process
-                                    let _ = process.kill_with(Signal::Kill);
-                                    println!("[Monitor] Blocked and killed: {}", process_name);
+                                    if process.kill_with(Signal::Kill).is_some() {
+                                        println!("[Monitor] Blocked and killed: {} (matched rule: {})", process_name, rule.app_id);
+                                    }
                                 }
                             }
                         }
