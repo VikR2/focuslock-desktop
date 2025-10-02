@@ -28,6 +28,7 @@ import RulesTable from "@/components/RulesTable";
 import SettingsPanel from "@/components/SettingsPanel";
 import ThemeToggle from "@/components/ThemeToggle";
 import Logs from "@/pages/Logs";
+import BlockedAppsList from "@/components/BlockedAppsList";
 import { LogsProvider } from "@/contexts/LogsContext";
 
 // Hooks
@@ -221,16 +222,18 @@ function Router() {
           <Route path="/" component={() => (
             <div className="flex-1 p-6">
               <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="flex justify-center">
-                  <SessionTimer 
-                    selectedDuration={selectedDuration}
-                  />
+                <div className="space-y-6">
+                  <div className="flex justify-center">
+                    <SessionTimer 
+                      selectedDuration={selectedDuration}
+                    />
+                  </div>
+                  <BlockedAppsList />
                 </div>
                 <div className="flex justify-center">
                   <SessionPanel 
                     selectedDuration={selectedDuration}
                     onDurationChange={setSelectedDuration}
-                    onStartSession={(duration: number) => setSelectedDuration(duration)}
                   />
                 </div>
               </div>

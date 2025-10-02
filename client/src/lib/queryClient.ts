@@ -57,6 +57,12 @@ async function getTauriInvoke() {
   }
 }
 
+// Public Tauri command helper for direct invocations
+export async function callTauriCommand<T>(command: string, args?: Record<string, any>): Promise<T> {
+  const invoke = await getTauriInvoke();
+  return invoke(command, args);
+}
+
 // Map API endpoints to Tauri commands
 const endpointToCommand: Record<string, string> = {
   '/api/favorites': 'get_favorites',

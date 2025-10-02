@@ -8,7 +8,6 @@ import { Clock, Settings } from "lucide-react";
 interface SessionPanelProps {
   selectedDuration: number;
   onDurationChange: (duration: number) => void;
-  onStartSession: (duration: number) => void;
 }
 
 const PRESET_DURATIONS = [
@@ -19,8 +18,7 @@ const PRESET_DURATIONS = [
 
 export default function SessionPanel({ 
   selectedDuration, 
-  onDurationChange,
-  onStartSession 
+  onDurationChange
 }: SessionPanelProps) {
   const [customMinutes, setCustomMinutes] = useState(25);
   const [showCustom, setShowCustom] = useState(false);
@@ -118,21 +116,10 @@ export default function SessionPanel({
           )}
         </div>
 
-        {/* Start Session Button */}
-        <Button
-          size="lg"
-          onClick={() => onStartSession(selectedDuration)}
-          disabled={false}
-          data-testid="button-start-focus-session"
-          className="w-full"
-        >
-          Start {Math.floor(selectedDuration / 60)}-Minute Focus Session
-        </Button>
-
         {/* Session Info */}
-        <div className="text-xs text-muted-foreground text-center">
-          <p>During your focus session, selected apps will be blocked</p>
-          <p>Configure your block list to get started</p>
+        <div className="text-sm text-muted-foreground text-center">
+          <p>Select a duration above, then use the Start button on the timer to begin your focus session</p>
+          <p className="text-xs mt-2">Blocked apps will be prevented from running during your session</p>
         </div>
       </CardContent>
     </Card>

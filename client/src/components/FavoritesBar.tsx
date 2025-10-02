@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +41,7 @@ import {
 import { useFavorites, useRemoveFavorite } from "@/hooks/useFavorites";
 import { useBlockRules, useAddBlockRule, useRemoveBlockRulesByAppId, useUpdateBlockRule } from "@/hooks/useBlockRules";
 import type { Favorite, BlockMode, BlockRule } from "@shared/schema";
+import { callTauriCommand } from "@/lib/queryClient";
 
 interface FavoriteApp extends Favorite {
   isBlocked: boolean;
@@ -55,10 +56,35 @@ export default function FavoritesBar({
   onAddFavorite 
 }: FavoritesBarProps) {
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
+  const [appIcons, setAppIcons] = useState<Record<string, string>>({});
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   
   // Fetch data from APIs
   const { data: favorites = [], isLoading: favoritesLoading, error: favoritesError } = useFavorites();
   const { data: blockRules = [], isLoading: rulesLoading, error: rulesError } = useBlockRules();
+  
+  // Fetch icons for each favorite app
+  useEffect(() => {
+    const fetchIcons = async () => {
+      for (const favorite of favorites as Favorite[]) {
+        if (!appIcons[favorite.appId] && favorite.iconHint) {
+          try {
+            const iconData = await callTauriCommand<string>('get_app_icon', { appPath: favorite.iconHint });
+            setAppIcons(prev => ({
+              ...prev,
+              [favorite.appId]: iconData
+            }));
+          } catch (error) {
+            console.warn(`Failed to load icon for ${favorite.appId}:`, error);
+          }
+        }
+      }
+    };
+    
+    if (favorites.length > 0) {
+      fetchIcons();
+    }
+  }, [favorites]);
   
   // Mutations
   const removeFavoriteMutation = useRemoveFavorite();
@@ -170,20 +196,34 @@ export default function FavoritesBar({
             onDragStart={() => setDraggedItem(favorite.id)}
             onDragEnd={() => setDraggedItem(null)}
           >
-            <div className={`
-              relative w-12 h-12 rounded-md border-2 transition-all duration-200
-              ${favorite.isBlocked 
-                ? 'border-destructive bg-destructive/10' 
-                : 'border-transparent bg-sidebar-accent hover-elevate'
-              }
-              ${draggedItem === favorite.id ? 'opacity-50' : ''}
-            `}>
+            <div 
+              className={`
+                relative w-12 h-12 rounded-md border-2 transition-all duration-200
+                ${favorite.isBlocked 
+                  ? 'border-destructive bg-destructive/10' 
+                  : 'border-transparent bg-sidebar-accent hover-elevate'
+                }
+                ${draggedItem === favorite.id ? 'opacity-50' : ''}
+              `}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setOpenMenuId(favorite.id);
+              }}
+            >
               {/* App Icon */}
               <div className="w-full h-full flex items-center justify-center">
-                {(() => {
-                  const IconComponent = getIconComponent(getAppIcon(favorite.appId));
-                  return <IconComponent className="w-6 h-6 text-sidebar-foreground" />;
-                })()}
+                {appIcons[favorite.appId] ? (
+                  <img 
+                    src={appIcons[favorite.appId]} 
+                    alt={favorite.displayName} 
+                    className="w-8 h-8 object-contain"
+                  />
+                ) : (
+                  (() => {
+                    const IconComponent = getIconComponent(getAppIcon(favorite.appId));
+                    return <IconComponent className="w-6 h-6 text-sidebar-foreground" />;
+                  })()
+                )}
               </div>
 
               {/* Block Status Indicator */}
@@ -199,7 +239,10 @@ export default function FavoritesBar({
               )}
 
               {/* Context Menu */}
-              <DropdownMenu>
+              <DropdownMenu 
+                open={openMenuId === favorite.id}
+                onOpenChange={(open) => setOpenMenuId(open ? favorite.id : null)}
+              >
                 <DropdownMenuTrigger asChild>
                   <Button
                     size="icon"

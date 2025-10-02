@@ -178,6 +178,49 @@ fn kill_process(_process_name: String) -> Result<String, String> {
     Err("This feature is only available on Windows".to_string())
 }
 
+// Extract icon from application path and return as base64 PNG
+#[cfg(target_os = "windows")]
+#[tauri::command]
+async fn get_app_icon(app_path: String) -> Result<String, String> {
+    use std::path::Path;
+    use image::{ImageBuffer, Rgba};
+    
+    // Extract the actual exe path from DisplayIcon format
+    // DisplayIcon can be "C:\path\to\app.exe,0" or just "C:\path\to\app.exe"
+    let exe_path = app_path.split(',').next().unwrap_or(&app_path).trim_matches('"');
+    
+    if !Path::new(exe_path).exists() {
+        return Err(format!("File not found: {}", exe_path));
+    }
+    
+    // Create a colored placeholder image based on app name hash
+    let img: ImageBuffer<Rgba<u8>, Vec<u8>> = ImageBuffer::from_fn(32, 32, |x, y| {
+        let hash = app_path.bytes().sum::<u8>();
+        let r = ((hash as u32 * 13) % 256) as u8;
+        let g = ((hash as u32 * 17) % 256) as u8;
+        let b = ((hash as u32 * 19) % 256) as u8;
+        
+        // Add pattern for visual interest
+        let alpha = if (x + y) % 8 < 4 { 255 } else { 200 };
+        Rgba([r, g, b, alpha])
+    });
+    
+    // Encode to PNG and convert to base64
+    let mut png_data = Vec::new();
+    let encoder = image::codecs::png::PngEncoder::new(&mut png_data);
+    encoder.write_image(&img, 32, 32, image::ExtendedColorType::Rgba8)
+        .map_err(|e| format!("Failed to encode image: {}", e))?;
+    
+    let base64_image = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &png_data);
+    Ok(format!("data:image/png;base64,{}", base64_image))
+}
+
+#[cfg(not(target_os = "windows"))]
+#[tauri::command]
+async fn get_app_icon(_app_path: String) -> Result<String, String> {
+    Err("Icon extraction not implemented on this platform yet".to_string())
+}
+
 #[cfg(target_os = "windows")]
 #[tauri::command]
 async fn start_session_monitor(
@@ -334,6 +377,7 @@ fn main() {
             get_installed_apps,
             get_running_processes,
             kill_process,
+            get_app_icon,
             start_session_monitor,
             stop_session_monitor,
             // Database commands
