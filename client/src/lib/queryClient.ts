@@ -89,6 +89,11 @@ export async function apiRequest(
           const result = await invoke('update_session', { id, updates: data });
           return new Response(JSON.stringify(result), { status: 200 });
         }
+        if (url.startsWith('/api/block-rules/')) {
+          const id = url.split('/').pop();
+          const result = await invoke('update_block_rule', { id, updates: data });
+          return new Response(JSON.stringify(result), { status: 200 });
+        }
       } else if (method === 'DELETE') {
         if (url.startsWith('/api/favorites/')) {
           const id = url.split('/').pop();

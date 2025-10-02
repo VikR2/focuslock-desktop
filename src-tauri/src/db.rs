@@ -230,6 +230,24 @@ pub fn create_block_rule(db: State<DbState>, rule: InsertBlockRule) -> Result<Bl
 }
 
 #[tauri::command]
+pub fn update_block_rule(db: State<DbState>, id: String, updates: InsertBlockRule) -> Result<BlockRule, String> {
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "UPDATE block_rules SET app_id = ?1, match_kind = ?2, mode = ?3 WHERE id = ?4",
+        (&updates.app_id, &updates.match_kind, &updates.mode, &id),
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(BlockRule {
+        id,
+        app_id: updates.app_id,
+        match_kind: updates.match_kind,
+        mode: updates.mode,
+    })
+}
+
+#[tauri::command]
 pub fn delete_block_rule(db: State<DbState>, id: String) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM block_rules WHERE id = ?1", [&id])

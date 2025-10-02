@@ -23,22 +23,37 @@ Preferred communication style: Simple, everyday language.
 - **Component Structure**: Modular components for SessionTimer, SessionPanel, FavoritesBar, AppSearch, RulesTable, and SettingsPanel
 
 ### Backend Architecture
+
+**Web App:**
 - **Runtime**: Node.js with Express.js server
 - **Language**: TypeScript throughout the stack
 - **API Design**: RESTful endpoints for session management, favorites, block rules, and settings
 - **Request Handling**: Express middleware for JSON parsing, logging, and error handling
 - **Development**: Vite integration for hot module replacement in development
 
+**Desktop App (Refactored: October 2025):**
+- **Runtime**: Rust-only backend (no Node.js dependency)
+- **Database**: SQLite with rusqlite crate
+- **API Layer**: Tauri commands invoked directly from frontend
+- **Architecture**: Single-process application - frontend and backend run in same process
+
 ### Data Storage Solutions
+
+**Web App:**
 - **Database**: PostgreSQL with Drizzle ORM
 - **Connection**: Neon Database serverless connection (@neondatabase/serverless)
 - **Schema Management**: Drizzle-kit for migrations and schema management
 - **In-Memory Fallback**: MemStorage class implements the same interface for development/testing
-- **Data Models**: Favorites (pinned apps), BlockRules (app blocking configuration), Sessions (focus session tracking), Settings (user preferences)
+
+**Desktop App:**
+- **Database**: SQLite file stored in app data directory
+- **Schema**: SQLite tables for favorites, block_rules, sessions, and settings
+- **Access**: Direct Rust queries via rusqlite, no ORM
+- **Data Models**: Same structure as web app (Favorites, BlockRules, Sessions, Settings)
 
 ### Authentication and Authorization
-- Currently using basic session-based approach with connect-pg-simple for PostgreSQL session storage
-- No complex authentication system implemented - appears to be single-user focused application
+- **Web App**: Basic session-based approach with connect-pg-simple for PostgreSQL session storage
+- **Desktop App**: No authentication needed (single-user, local application)
 
 ### Design System Integration
 - **Theme System**: Light/dark mode support with CSS custom properties
@@ -80,10 +95,10 @@ Preferred communication style: Simple, everyday language.
 
 ## Desktop Application Architecture
 
-### Tauri Integration (Added: September 2025)
+### Tauri Integration (Refactored: October 2025)
 - **Desktop Framework**: Tauri v2.4 for cross-platform desktop apps
-- **Rust Backend**: Native OS integration for Windows app detection and process monitoring
-- **Embedded Server**: Express backend auto-starts with desktop app, bundled as Tauri resources
+- **Rust Backend**: Native Rust backend with SQLite database (no Node.js dependency)
+- **Architecture**: Single-process application - all backend logic runs in Rust
 - **Build System**: Docker-based cross-compilation for Windows (cargo-xwin) and Linux packages
 
 ### Desktop-Specific Features
@@ -93,27 +108,35 @@ Preferred communication style: Simple, everyday language.
   - Native Windows notifications
   - NSIS installer packaging
 
-- **Backend Auto-Start**:
-  - Rust spawns Node.js process on app launch (`node dist/index.js`)
-  - Health check polling (`/api/health`) ensures backend readiness
-  - Graceful process cleanup on app exit
-  - Requires Node.js installed on target system
+- **Data Persistence**:
+  - SQLite database stored in app data directory
+  - rusqlite crate for database operations
+  - Tauri commands expose CRUD operations to frontend
+  - No external dependencies - fully self-contained
 
-### Build Configuration (Updated: October 2025)
-- **Simplified Build System**: Single `build.sh` script for both platforms
+- **Frontend-Backend Communication**:
+  - Frontend uses Tauri `invoke()` API to call Rust functions
+  - Automatic detection: uses Tauri commands in desktop, HTTP fetch in web
+  - Type-safe communication with serialization/deserialization
+
+### Build Configuration (Simplified: October 2025)
+- **Streamlined Build System**: Single `build.sh` script for both platforms
 - **Build Flow**:
-  1. Local build: `npm run build` creates frontend (`dist/public/`) and backend (`dist/index.js`)
-  2. Docker compilation: Tauri compiles Rust wrapper around pre-built files
+  1. Frontend build: `npx vite build` creates `dist/public/`
+  2. Docker compilation: Tauri compiles Rust app with embedded frontend
   3. Output: Installers copied to `./releases/windows/` or `./releases/linux/`
 - **Output Formats**: 
   - Windows: `.exe` NSIS installer (via cargo-xwin cross-compilation)
   - Linux: `.deb`, `.rpm`, and `.AppImage` packages
+- **No Node.js Required**: Desktop app is fully self-contained, no runtime dependencies
 
 ### Key Files
 - `build.sh`: Single build script for all platforms (`./build.sh linux` or `./build.sh windows`)
-- `src-tauri/src/main.rs`: Rust main with backend spawning and health checks
-- `src-tauri/tauri.conf.json`: Tauri configuration with resource bundling
-- `src-tauri/Cargo.toml`: Rust dependencies (winreg, sysinfo, reqwest, tokio)
+- `src-tauri/src/main.rs`: Rust main with database initialization and Tauri commands
+- `src-tauri/src/db.rs`: SQLite database layer with all CRUD operations
+- `src-tauri/tauri.conf.json`: Tauri configuration (frontend bundling only)
+- `src-tauri/Cargo.toml`: Rust dependencies (rusqlite, uuid, winreg, sysinfo)
+- `client/src/lib/queryClient.ts`: Frontend API client with Tauri invoke() integration
 - `Dockerfile`: Linux build container (Rust + Tauri only)
 - `Dockerfile.windows`: Windows cross-compilation container (Rust + Tauri + cargo-xwin)
 - `DESKTOP_APP.md`: User installation and usage guide

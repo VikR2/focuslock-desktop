@@ -161,6 +161,7 @@ fn main() {
             db::delete_favorite,
             db::get_block_rules,
             db::create_block_rule,
+            db::update_block_rule,
             db::delete_block_rule,
             db::get_sessions,
             db::create_session,
