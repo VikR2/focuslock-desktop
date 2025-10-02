@@ -1,0 +1,220 @@
+### Steps to Fix the "Failed to Fetch" Bug in Desktop Mode
+
+Based on the architecture description, the issue occurs because in desktop mode (Tauri), some data-fetching queries are falling back to HTTP `fetch` calls instead of using Tauri's `invoke` for backend commands. This happens when the app is loaded, leading to a white screen since there's no HTTP server running in desktop mode (unlike web mode with Node.js/Express). The fix involves ensuring proper platform detection, routing all API calls through Tauri's `invoke` in desktop mode, and confirming all required endpoints have corresponding Tauri commands in the Rust backend.
+
+I'll provide specific code changes and steps, assuming standard setups from similar Tauri + React apps (e.g., using Tanstack Query for data fetching, platform detection via `window.__TAURI__`, and API routing in `queryClient.ts`). If your code differs slightly, adapt accordingly.
+
+#### 1. Verify and Strengthen Platform Detection in `client/src/lib/queryClient.ts`
+The detection likely checks if the app is running in Tauri (desktop) vs. web. If it's not detecting correctly, fetches will default to HTTP. Update it to be robust and add logging for debugging.
+
+Assume your current `queryClient.ts` looks something like this (based on common patterns):
+
+```typescript
+// Existing code (hypothetical)
+import { QueryClient } from '@tanstack/react-query';
+import { invoke } from '@tauri-apps/api/tauri'; // Or similar import
+
+const isTauri = 'tauri' in window; // Basic detection
+
+const apiCall = async (endpoint: string, params?: any) => {
+  if (isTauri) {
+    return invoke(endpoint, params);
+  } else {
+    const response = await fetch(`/api/${endpoint}`, {
+      method: 'POST', // Or GET as needed
+      body: JSON.stringify(params),
+    });
+    if (!response.ok) throw new Error('Failed to fetch');
+    return response.json();
+  }
+};
+
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      queryFn: ({ queryKey }) => apiCall(queryKey[0] as string, queryKey[1]),
+    },
+  },
+});
+```
+
+**Fix:** Enhance detection, add logging, and ensure no fallback if detection fails. Update to:
+
+```typescript
+import { QueryClient } from '@tanstack/react-query';
+import { invoke } from '@tauri-apps/api/tauri';
+import { getVersion } from '@tauri-apps/api/app'; // For more reliable detection
+
+let isTauri: boolean | null = null;
+
+const detectPlatform = async () => {
+  if (isTauri !== null) return isTauri;
+  try {
+    await getVersion(); // This will succeed only in Tauri
+    isTauri = true;
+  } catch {
+    isTauri = false;
+  }
+  console.log(`Platform detected: ${isTauri ? 'Tauri (Desktop)' : 'Web'}`);
+  return isTauri;
+};
+
+const apiCall = async (endpoint: string, params?: any) => {
+  const platformIsTauri = await detectPlatform();
+  if (platformIsTauri) {
+    console.log(`Invoking Tauri command: ${endpoint}`);
+    return invoke(endpoint, params);
+  } else {
+    console.log(`Fetching HTTP: /api/${endpoint}`);
+    const response = await fetch(`/api/${endpoint}`, {
+      method: params ? 'POST' : 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      body: params ? JSON.stringify(params) : undefined,
+    });
+    if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+    return response.json();
+  }
+};
+
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      queryFn: async ({ queryKey }) => {
+        const [endpoint, params] = queryKey;
+        return apiCall(endpoint as string, params);
+      },
+      retry: (failureCount: number, error: any) => {
+        console.error('Query failed:', error);
+        return failureCount < 3 && !error.message.includes('Failed to fetch'); // Avoid retry on fetch errors in desktop
+      },
+    },
+  },
+});
+```
+
+- **Why this fixes it:** Async detection handles cases where `__TAURI__` might not be immediately available. Logging helps identify if detection is wrong. Error handling prevents infinite retries on "failed to fetch".
+- **Test:** Run the desktop app with dev tools open (enable in `tauri.conf.json` under `tauri > windows > debug`). Check console for "Platform detected: Tauri (Desktop)" and "Invoking Tauri command".
+
+#### 2. Audit and Update Data Fetching Hooks in `client/src/hooks/`
+The hooks likely use `useQuery` from Tanstack Query. Some may have custom `queryFn` that bypass the routed `apiCall` and use direct `fetch`. Search for `fetch` in the hooks directory and replace with the routed version.
+
+**Steps:**
+- List likely hooks based on features (sessions, favorites, block rules, settings): e.g., `useSessions.ts`, `useFavorites.ts`, `useBlockRules.ts`, `useSettings.ts`.
+- For each, ensure `queryFn` uses the centralized `apiCall` or directly calls `invoke` if in Tauri.
+
+Example fix for a hypothetical `useSettings.ts`:
+
+```typescript
+// Before (problematic if using direct fetch)
+import { useQuery } from '@tanstack/react-query';
+
+export const useSettings = () => {
+  return useQuery({
+    queryKey: ['settings'],
+    queryFn: async () => {
+      const res = await fetch('/api/settings'); // This causes "failed to fetch" in desktop
+      return res.json();
+    },
+  });
+};
+
+// After (routed)
+import { useQuery } from '@tanstack/react-query';
+import { queryClient } from '../lib/queryClient'; // Import if not global
+
+export const useSettings = () => {
+  return useQuery({
+    queryKey: ['get_settings'], // Match Tauri command name
+    queryFn: queryClient.defaultOptions.queries?.queryFn, // Use routed fn
+  });
+};
+```
+
+- Repeat for other hooks (e.g., `useSessions`, `useFavorites`). If a hook uses direct `fetch`, replace with `apiCall('endpoint_name')`.
+- If a hook is for a specific feature not mapped, add the mapping in step 3.
+
+#### 3. Ensure All Endpoints Are Mapped as Tauri Commands in `src-tauri/src/db.rs`
+The context indicates "Tauri commands for all CRUD operations," but some may be missing. Add any absent ones for the features (session management, favorites, block rules, settings). Commands are decorated with `#[tauri::command]`.
+
+Assume existing code has basics like `get_sessions`. Add missing ones like this:
+
+```rust
+// Add to db.rs (after existing imports and connection setup)
+use rusqlite::{params, Connection, Result};
+use serde::{Deserialize, Serialize};
+use tauri::State; // If using state for conn
+
+#[derive(Serialize, Deserialize)]
+struct Setting { /* fields like id: u32, key: String, value: String */ }
+
+// Example missing command for settings
+#[tauri::command]
+pub fn get_settings(conn: State<Connection>) -> Result<Vec<Setting>, String> {
+  let mut stmt = conn.prepare("SELECT * FROM settings").map_err(|e| e.to_string())?;
+  let rows = stmt.query_map([], |row| {
+    Ok(Setting {
+      // Map row to struct
+    })
+  }).map_err(|e| e.to_string())?;
+
+  let mut settings = Vec::new();
+  for row in rows {
+    settings.push(row.map_err(|e| e.to_string())?);
+  }
+  Ok(settings)
+}
+
+#[tauri::command]
+pub fn update_setting(conn: State<Connection>, key: String, value: String) -> Result<(), String> {
+  conn.execute(
+    "UPDATE settings SET value = ?2 WHERE key = ?1",
+    params![key, value],
+  ).map_err(|e| e.to_string())?;
+  Ok(())
+}
+
+// Add similar for favorites, block_rules, etc.
+// e.g., get_favorites, add_favorite, get_block_rules, etc.
+```
+
+- **Register in `src-tauri/src/main.rs`:** Ensure all new commands are registered in the builder.
+
+```rust
+// In main.rs
+fn main() {
+  tauri::Builder::default()
+    .invoke_handler(tauri::generate_handler![
+      // Existing commands...
+      db::get_settings, // Add new ones
+      db::update_setting,
+      // Add others
+    ])
+    .run(tauri::generate_context!())
+    .expect("error while running tauri application");
+}
+```
+
+- **Database Schema:** Ensure SQLite tables exist for these (e.g., in `db.rs` init). Mirror PostgreSQL schema from web mode.
+
+#### 4. Update Build and Test
+- Run `./build.sh` to rebuild for desktop.
+- In `tauri.conf.json`, enable dev tools for debugging:
+
+```json
+{
+  "tauri": {
+    "windows": [
+      {
+        "webview": {
+          "openDevTools": true
+        }
+      }
+    ]
+  }
+}
+```
+
+- Test: Launch desktop app. If still failing, check console for logs (e.g., which endpoint is trying HTTP). Add the missing command/hook fix accordingly.
+- If the issue persists, it could be CORS-related (from search results), but unlikely since no server. Add `"allowlist": { "http": { "all": false } }` in `tauri.conf.json` to disable HTTP if needed.
+
+This should resolve the white screen and "failed to fetch." If you provide logs or specific failing endpoints, I can refine further.
