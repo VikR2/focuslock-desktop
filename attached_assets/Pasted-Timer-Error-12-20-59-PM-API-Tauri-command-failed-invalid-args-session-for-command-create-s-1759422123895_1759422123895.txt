@@ -1,0 +1,81 @@
+Timer Error
+
+12:20:59 PM
+[API] Tauri command failed: invalid args `session` for command `create_session`: missing field `start_utc`
+12:21:05 PM
+[API] Tauri mode: POST /api/sessions
+12:21:05 PM
+[Tauri] Using global __TAURI__.core.invoke
+12:21:05 PM
+[API] Invoking: create_session
+12:21:05 PM
+[API] Tauri command failed: invalid args `session` for command `create_session`: missing field `start_utc`
+
+
+Platform] Detected: Tauri (Desktop Mode)
+12:21:39 PM
+[API] Tauri mode: GET /api/settings/autostart
+12:21:39 PM
+[Tauri] Using global __TAURI__.core.invoke
+12:21:39 PM
+[API] Invoking: get_settings (filtering by key: autostart)
+12:21:39 PM
+IPC custom protocol failed, Tauri will now use the postMessage interface instead {}
+12:21:39 PM
+[Platform] Detected: Tauri (Desktop Mode)
+12:21:39 PM
+[API] Tauri mode: GET /api/settings/hotkeysEnabled
+12:21:39 PM
+[Tauri] Using global __TAURI__.core.invoke
+12:21:39 PM
+[API] Invoking: get_settings (filtering by key: hotkeysEnabled)
+12:21:39 PM
+[Platform] Detected: Tauri (Desktop Mode)
+12:21:39 PM
+[Tauri] Using global __TAURI__.core.invoke
+12:21:39 PM
+[Query] Tauri mode: /api/block-rules
+12:21:39 PM
+[Query] Invoking: get_block_rules
+12:21:39 PM
+[Platform] Detected: Tauri (Desktop Mode)
+12:21:39 PM
+[API] Tauri mode: GET /api/settings/strictMode
+12:21:39 PM
+[Tauri] Using global __TAURI__.core.invoke
+12:21:39 PM
+[API] Invoking: get_settings (filtering by key: strictMode)
+12:21:39 PM
+[Platform] Detected: Tauri (Desktop Mode)
+12:21:39 PM
+[API] Tauri mode: GET /api/settings/defaultBlockMode
+12:21:39 PM
+[Tauri] Using global __TAURI__.core.invoke
+12:21:39 PM
+[API] Invoking: get_settings (filtering by key: defaultBlockMode)
+12:21:39 PM
+[Platform] Detected: Tauri (Desktop Mode)
+12:21:39 PM
+[API] Tauri mode: GET /api/settings/notificationCadence
+12:21:39 PM
+[Tauri] Using global __TAURI__.core.invoke
+12:21:39 PM
+[API] Invoking: get_settings (filtering by key: notificationCadence)
+12:21:39 PM
+[Platform] Detected: Tauri (Desktop Mode)
+12:21:39 PM
+[Tauri] Using global __TAURI__.core.invoke
+12:21:39 PM
+[Query] Tauri mode: /api/favorites
+12:21:39 PM
+[Query] Invoking: get_favorites
+12:21:42 PM
+[API] Tauri mode: POST /api/block-rules
+12:21:42 PM
+[Tauri] Using global __TAURI__.core.invoke
+12:21:42 PM
+[API] Invoking: create_block_rule
+12:21:42 PM
+[API] Tauri command failed: invalid args `rule` for command `create_block_rule`: missing field `app_id`
+12:21:42 PM
+Failed to add block rule: {}

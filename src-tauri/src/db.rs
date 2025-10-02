@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 // Data structures matching the TypeScript schema
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Favorite {
     pub id: String,
     pub app_id: String,
@@ -15,6 +16,7 @@ pub struct Favorite {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InsertFavorite {
     pub app_id: String,
     pub display_name: String,
@@ -23,6 +25,7 @@ pub struct InsertFavorite {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct BlockRule {
     pub id: String,
     pub app_id: String,
@@ -31,6 +34,7 @@ pub struct BlockRule {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InsertBlockRule {
     pub app_id: String,
     pub match_kind: String,
@@ -38,6 +42,7 @@ pub struct InsertBlockRule {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Session {
     pub id: String,
     pub start_utc: i64,
@@ -48,6 +53,7 @@ pub struct Session {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InsertSession {
     pub start_utc: i64,
     pub end_utc: i64,
@@ -57,6 +63,7 @@ pub struct InsertSession {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateSession {
     pub start_utc: Option<i64>,
     pub end_utc: Option<i64>,

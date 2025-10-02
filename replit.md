@@ -36,6 +36,7 @@ Preferred communication style: Simple, everyday language.
 - **Database**: SQLite with rusqlite crate
 - **API Layer**: Tauri commands invoked directly from frontend
 - **Architecture**: Single-process application - frontend and backend run in same process
+- **Serialization**: All Rust structs use `#[serde(rename_all = "camelCase")]` to match JavaScript naming conventions
 
 ### Data Storage Solutions
 
