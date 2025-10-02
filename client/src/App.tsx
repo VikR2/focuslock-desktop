@@ -17,7 +17,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Clock, Search, Shield, Settings, Monitor } from "lucide-react";
+import { Clock, Search, Shield, Settings, Monitor, ScrollText } from "lucide-react";
 
 // Components
 import SessionTimer from "@/components/SessionTimer";
@@ -27,7 +27,6 @@ import AppSearch from "@/components/AppSearch";
 import RulesTable from "@/components/RulesTable";
 import SettingsPanel from "@/components/SettingsPanel";
 import ThemeToggle from "@/components/ThemeToggle";
-import { DebugPanel } from "@/components/DebugPanel";
 
 // Hooks
 import { useBlockRules, useRemoveBlockRule, useUpdateBlockRule, useAddBlockRule } from "@/hooks/useBlockRules";
@@ -63,6 +62,12 @@ function AppSidebar() {
       url: "/rules",
       icon: Shield,
       id: "rules",
+    },
+    {
+      title: "Logs",
+      url: "/logs",
+      icon: ScrollText,
+      id: "logs",
     },
     {
       title: "Settings",
@@ -289,7 +294,6 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <DebugPanel />
         <SidebarProvider style={style as React.CSSProperties}>
           <div className="flex h-screen w-full">
             <AppSidebar />
