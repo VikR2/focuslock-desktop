@@ -41,6 +41,14 @@ pub struct InsertBlockRule {
     pub mode: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateBlockRule {
+    pub app_id: Option<String>,
+    pub match_kind: Option<String>,
+    pub mode: Option<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Session {
@@ -237,21 +245,44 @@ pub fn create_block_rule(db: State<DbState>, rule: InsertBlockRule) -> Result<Bl
 }
 
 #[tauri::command]
-pub fn update_block_rule(db: State<DbState>, id: String, updates: InsertBlockRule) -> Result<BlockRule, String> {
+pub fn update_block_rule(db: State<DbState>, id: String, updates: UpdateBlockRule) -> Result<BlockRule, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
+    // First, get the current rule
+    let mut stmt = conn
+        .prepare("SELECT id, app_id, match_kind, mode FROM block_rules WHERE id = ?1")
+        .map_err(|e| e.to_string())?;
+    
+    let mut current_rule = stmt
+        .query_row([&id], |row| {
+            Ok(BlockRule {
+                id: row.get(0)?,
+                app_id: row.get(1)?,
+                match_kind: row.get(2)?,
+                mode: row.get(3)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    // Update only the fields that are provided
+    if let Some(app_id) = updates.app_id {
+        current_rule.app_id = app_id;
+    }
+    if let Some(match_kind) = updates.match_kind {
+        current_rule.match_kind = match_kind;
+    }
+    if let Some(mode) = updates.mode {
+        current_rule.mode = mode;
+    }
+
+    // Save the updated rule
     conn.execute(
         "UPDATE block_rules SET app_id = ?1, match_kind = ?2, mode = ?3 WHERE id = ?4",
-        (&updates.app_id, &updates.match_kind, &updates.mode, &id),
+        (&current_rule.app_id, &current_rule.match_kind, &current_rule.mode, &id),
     )
     .map_err(|e| e.to_string())?;
 
-    Ok(BlockRule {
-        id,
-        app_id: updates.app_id,
-        match_kind: updates.match_kind,
-        mode: updates.mode,
-    })
+    Ok(current_rule)
 }
 
 #[tauri::command]
