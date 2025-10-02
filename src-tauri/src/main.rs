@@ -3,11 +3,10 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
 use tauri::Manager;
-use std::fs::OpenOptions;
-use std::io::{BufRead, BufReader, Write};
+
+mod db;
+use db::DbState;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct AppInfo {
@@ -134,196 +133,44 @@ fn get_running_processes() -> Result<Vec<AppInfo>, String> {
     Err("This feature is only available on Windows".to_string())
 }
 
-struct ServerProcess(Mutex<Option<Child>>);
-
-fn get_log_path() -> std::path::PathBuf {
-    std::env::temp_dir().join("focuslock_debug.log")
-}
-
-fn log_to_file(msg: &str) {
-    let log_path = get_log_path();
-    if let Ok(mut file) = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&log_path) {
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
-        let _ = writeln!(file, "[{}] {}", timestamp, msg);
-    }
-}
-
-fn start_backend_server(app_handle: &tauri::AppHandle) -> Result<Child, String> {
-    log_to_file("=== Starting backend server ===");
-    
-    // Check if Node.js is available
-    log_to_file("Checking for Node.js...");
-    match Command::new("node").arg("--version").output() {
-        Ok(output) => {
-            let version = String::from_utf8_lossy(&output.stdout);
-            log_to_file(&format!("Node.js found: {}", version.trim()));
-        }
-        Err(e) => {
-            let err_msg = format!("Node.js check failed: {}", e);
-            log_to_file(&err_msg);
-            return Err("Node.js is not installed or not in PATH. The backend server requires Node.js to run.".to_string());
-        }
-    }
-
-    let resource_path = app_handle
-        .path()
-        .resource_dir()
-        .map_err(|e| {
-            let err_msg = format!("Failed to get resource dir: {}", e);
-            log_to_file(&err_msg);
-            err_msg
-        })?;
-    
-    log_to_file(&format!("Resource path: {}", resource_path.display()));
-    
-    let server_script = resource_path.join("dist").join("index.js");
-    log_to_file(&format!("Looking for server script at: {}", server_script.display()));
-    
-    // Verify server script exists
-    if !server_script.exists() {
-        let err_msg = format!("Backend server script not found at: {}", server_script.display());
-        log_to_file(&err_msg);
-        
-        // List contents of resource directory for debugging
-        if let Ok(entries) = std::fs::read_dir(&resource_path) {
-            log_to_file("Resource directory contents:");
-            for entry in entries.flatten() {
-                log_to_file(&format!("  - {}", entry.path().display()));
-            }
-        }
-        
-        return Err(err_msg);
-    }
-    
-    log_to_file("Server script found, starting Node.js process...");
-    
-    // Spawn Node.js process to run the server with stdout/stderr capture
-    let mut child = Command::new("node")
-        .arg(&server_script)
-        .env("PORT", "5000")
-        .env("NODE_ENV", "production")
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| {
-            let err_msg = format!("Failed to start server: {}. Make sure Node.js is installed.", e);
-            log_to_file(&err_msg);
-            err_msg
-        })?;
-    
-    log_to_file(&format!("Node.js process started with PID: {:?}", child.id()));
-    
-    // Capture stdout in a separate thread
-    if let Some(stdout) = child.stdout.take() {
-        std::thread::spawn(move || {
-            let reader = BufReader::new(stdout);
-            for line in reader.lines().flatten() {
-                log_to_file(&format!("[BACKEND STDOUT] {}", line));
-            }
-        });
-    }
-    
-    // Capture stderr in a separate thread
-    if let Some(stderr) = child.stderr.take() {
-        std::thread::spawn(move || {
-            let reader = BufReader::new(stderr);
-            for line in reader.lines().flatten() {
-                log_to_file(&format!("[BACKEND STDERR] {}", line));
-            }
-        });
-    }
-    
-    Ok(child)
-}
-
-async fn wait_for_backend() -> Result<(), String> {
-    use std::time::Duration;
-    
-    log_to_file("Waiting for backend health check...");
-    
-    // Wait up to 10 seconds for backend to be ready
-    for i in 0..20 {
-        log_to_file(&format!("Health check attempt {}/20", i + 1));
-        
-        match reqwest::get("http://localhost:5000/api/health").await {
-            Ok(response) => {
-                let status = response.status();
-                log_to_file(&format!("Health check response status: {}", status));
-                
-                if status.is_success() {
-                    log_to_file("Backend is ready!");
-                    return Ok(());
-                }
-            }
-            Err(e) => {
-                log_to_file(&format!("Health check failed: {}", e));
-            }
-        }
-        
-        tokio::time::sleep(Duration::from_millis(500)).await;
-    }
-    
-    let err_msg = "Backend failed to start within timeout";
-    log_to_file(err_msg);
-    Err(err_msg.to_string())
-}
-
-#[tauri::command]
-fn get_debug_log_path() -> String {
-    get_log_path()
-        .to_string_lossy()
-        .to_string()
-}
-
 fn main() {
-    // Log the app startup
-    log_to_file(&format!("App starting... Log file: {}", get_log_path().display()));
-    
     tauri::Builder::default()
         .setup(|app| {
-            // Start the backend server
-            match start_backend_server(app.handle()) {
-                Ok(child) => {
-                    app.manage(ServerProcess(Mutex::new(Some(child))));
-                    log_to_file("Backend server process created, waiting for health check...");
-                    
-                    // Wait for backend to be ready
-                    tauri::async_runtime::block_on(async {
-                        if let Err(e) = wait_for_backend().await {
-                            log_to_file(&format!("Backend startup error: {}", e));
-                        }
-                    });
-                }
-                Err(e) => {
-                    log_to_file(&format!("Critical: Failed to start backend server: {}", e));
-                }
-            }
+            // Initialize SQLite database in app data directory
+            let app_data_dir = app.path().app_data_dir()
+                .expect("Failed to get app data directory");
+            
+            // Create directory if it doesn't exist
+            std::fs::create_dir_all(&app_data_dir)
+                .expect("Failed to create app data directory");
+            
+            let db_path = app_data_dir.join("focuslock.db");
+            let db_state = DbState::new(db_path.to_str().unwrap())
+                .expect("Failed to initialize database");
+            
+            app.manage(db_state);
+            
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             get_installed_apps,
             get_running_processes,
-            get_debug_log_path
+            // Database commands
+            db::get_favorites,
+            db::create_favorite,
+            db::delete_favorite,
+            db::get_block_rules,
+            db::create_block_rule,
+            db::delete_block_rule,
+            db::get_sessions,
+            db::create_session,
+            db::update_session,
+            db::get_settings,
+            db::upsert_setting,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|app_handle, event| {
-            // Cleanup on app exit
-            if let tauri::RunEvent::Exit = event {
-                if let Some(server_process) = app_handle.try_state::<ServerProcess>() {
-                    if let Ok(mut child) = server_process.0.lock() {
-                        if let Some(mut process) = child.take() {
-                            let _ = process.kill();
-                            println!("Backend server stopped");
-                        }
-                    }
-                }
-            }
+        .run(|_app_handle, _event| {
+            // No cleanup needed - SQLite handles it
         });
 }
