@@ -106,6 +106,9 @@ export async function apiRequest(
           return new Response(null, { status: 204 });
         }
       }
+      
+      // If we get here in Tauri mode, the endpoint is not handled
+      throw new Error(`Unhandled Tauri endpoint: ${method} ${url}`);
     } catch (error: any) {
       throw new Error(error?.message || 'Tauri command failed');
     }
@@ -139,6 +142,9 @@ export const getQueryFn: <T>(options: {
         if (command) {
           return await invoke(command);
         }
+        
+        // If we get here in Tauri mode, the endpoint is not handled
+        throw new Error(`Unhandled Tauri endpoint in queryFn: ${endpoint}`);
       } catch (error: any) {
         throw new Error(error?.message || 'Tauri command failed');
       }
