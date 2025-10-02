@@ -27,6 +27,8 @@ import AppSearch from "@/components/AppSearch";
 import RulesTable from "@/components/RulesTable";
 import SettingsPanel from "@/components/SettingsPanel";
 import ThemeToggle from "@/components/ThemeToggle";
+import Logs from "@/pages/Logs";
+import { LogsProvider } from "@/contexts/LogsContext";
 
 // Hooks
 import { useBlockRules, useRemoveBlockRule, useUpdateBlockRule, useAddBlockRule } from "@/hooks/useBlockRules";
@@ -264,6 +266,8 @@ function Router() {
             </div>
           )} />
           
+          <Route path="/logs" component={Logs} />
+          
           <Route path="/settings" component={() => (
             <div className="flex-1 p-6">
               <div className="max-w-4xl mx-auto">
@@ -294,7 +298,8 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <SidebarProvider style={style as React.CSSProperties}>
+        <LogsProvider>
+          <SidebarProvider style={style as React.CSSProperties}>
           <div className="flex h-screen w-full">
             <AppSidebar />
             <div className="flex flex-col flex-1">
@@ -307,8 +312,9 @@ export default function App() {
               </main>
             </div>
           </div>
-        </SidebarProvider>
-        <Toaster />
+          </SidebarProvider>
+          <Toaster />
+        </LogsProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
