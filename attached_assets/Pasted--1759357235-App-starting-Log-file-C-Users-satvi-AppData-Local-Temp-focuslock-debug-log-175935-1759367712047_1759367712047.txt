@@ -1,0 +1,71 @@
+[1759357235] App starting... Log file: C:\Users\satvi\AppData\Local\Temp\focuslock_debug.log
+[1759357235] === Starting backend server ===
+[1759357235] Checking for Node.js...
+[1759357235] Node.js found: v22.19.0
+[1759357235] Resource path: \\?\C:\Users\satvi\AppData\Local\FocusLock
+[1759357235] Looking for server script at: \\?\C:\Users\satvi\AppData\Local\FocusLock\dist\index.js
+[1759357235] Backend server script not found at: \\?\C:\Users\satvi\AppData\Local\FocusLock\dist\index.js
+[1759357235] Resource directory contents:
+[1759357235]   - \\?\C:\Users\satvi\AppData\Local\FocusLock\focuslock.exe
+[1759357235]   - \\?\C:\Users\satvi\AppData\Local\FocusLock\uninstall.exe
+[1759357235]   - \\?\C:\Users\satvi\AppData\Local\FocusLock\_up_
+[1759357235] Critical: Failed to start backend server: Backend server script not found at: \\?\C:\Users\satvi\AppData\Local\FocusLock\dist\index.js
+[1759360810] App starting... Log file: C:\Users\satvi\AppData\Local\Temp\focuslock_debug.log
+[1759360810] === Starting backend server ===
+[1759360810] Checking for Node.js...
+[1759360814] Node.js found: v22.19.0
+[1759360814] Resource path: \\?\C:\Users\satvi\AppData\Local\FocusLock
+[1759360814] Looking for server script at: \\?\C:\Users\satvi\AppData\Local\FocusLock\dist\index.js
+[1759360814] Server script found, starting Node.js process...
+[1759360814] Node.js process started with PID: 42872
+[1759360814] Backend server process created, waiting for health check...
+[1759360814] Waiting for backend health check...
+[1759360814] Health check attempt 1/20
+[1759360815] [BACKEND STDERR] node:internal/modules/package_json_reader:266
+[1759360815] [BACKEND STDERR]   throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+[1759360815] [BACKEND STDERR]         ^
+[1759360815] [BACKEND STDERR] 
+[1759360815] [BACKEND STDERR] Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'express' imported from C:\Users\satvi\AppData\Local\FocusLock\dist\index.js
+[1759360815] [BACKEND STDERR]     at Object.getPackageJSONURL (node:internal/modules/package_json_reader:266:9)
+[1759360815] [BACKEND STDERR]     at packageResolve (node:internal/modules/esm/resolve:767:81)
+[1759360815] [BACKEND STDERR]     at moduleResolve (node:internal/modules/esm/resolve:853:18)
+[1759360815] [BACKEND STDERR]     at defaultResolve (node:internal/modules/esm/resolve:983:11)
+[1759360815] [BACKEND STDERR]     at #cachedDefaultResolve (node:internal/modules/esm/loader:717:20)
+[1759360815] [BACKEND STDERR]     at ModuleLoader.resolve (node:internal/modules/esm/loader:694:38)
+[1759360815] [BACKEND STDERR]     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:308:38)
+[1759360815] [BACKEND STDERR]     at ModuleJob._link (node:internal/modules/esm/module_job:183:49) {
+[1759360815] [BACKEND STDERR]   code: 'ERR_MODULE_NOT_FOUND'
+[1759360815] [BACKEND STDERR] }
+[1759360815] [BACKEND STDERR] 
+[1759360815] [BACKEND STDERR] Node.js v22.19.0
+[1759360816] Health check failed: error sending request for url (http://localhost:5000/api/health)
+[1759360817] Health check attempt 2/20
+[1759360819] Health check failed: error sending request for url (http://localhost:5000/api/health)
+[1759360820] Health check attempt 3/20
+[1759360822] Health check failed: error sending request for url (http://localhost:5000/api/health)
+[1759360823] Health check attempt 4/20
+[1759360825] Health check failed: error sending request for url (http://localhost:5000/api/health)
+[1759360825] Health check attempt 5/20
+[1759360828] Health check failed: error sending request for url (http://localhost:5000/api/health)
+[1759360828] Health check attempt 6/20
+[1759360831] Health check failed: error sending request for url (http://localhost:5000/api/health)
+[1759360831] Health check attempt 7/20
+[1759360833] Health check failed: error sending request for url (http://localhost:5000/api/health)
+[1759360837] App starting... Log file: C:\Users\satvi\AppData\Local\Temp\focuslock_debug.log
+[1759360837] === Starting backend server ===
+[1759360837] Checking for Node.js...
+[1759360840] Node.js found: v22.19.0
+[1759360840] Resource path: \\?\C:\Users\satvi\AppData\Local\FocusLock
+[1759360840] Looking for server script at: \\?\C:\Users\satvi\AppData\Local\FocusLock\dist\index.js
+[1759360840] Server script found, starting Node.js process...
+[1759360840] Node.js process started with PID: 25076
+[1759360840] Backend server process created, waiting for health check...
+[1759360840] Waiting for backend health check...
+[1759360840] Health check attempt 1/20
+[1759360843] Health check failed: error sending request for url (http://localhost:5000/api/health)
+[1759360843] Health check attempt 2/20
+[1759360844] [BACKEND STDERR] node:internal/modules/package_json_reader:266
+[1759360844] [BACKEND STDERR]   throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+[1759360844] [BACKEND STDERR]         ^
+[1759360844] [BACKEND STDERR] 
+[1759360844] [BACKEND STDERR] Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'ex...
