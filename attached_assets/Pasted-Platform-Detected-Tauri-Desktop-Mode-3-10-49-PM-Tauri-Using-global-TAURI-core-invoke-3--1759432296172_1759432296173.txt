@@ -1,0 +1,71 @@
+Platform] Detected: Tauri (Desktop Mode)
+3:10:49 PM
+[Tauri] Using global __TAURI__.core.invoke
+3:10:49 PM
+[Query] Tauri mode: /api/block-rules
+3:10:49 PM
+[Query] Invoking: get_block_rules
+3:10:49 PM
+IPC custom protocol failed, Tauri will now use the postMessage interface instead {}
+3:10:49 PM
+[Platform] Detected: Tauri (Desktop Mode)
+3:10:49 PM
+[API] Tauri mode: GET /api/settings/hotkeysEnabled
+3:10:49 PM
+[Tauri] Using global __TAURI__.core.invoke
+3:10:49 PM
+[API] Invoking: get_settings (filtering by key: hotkeysEnabled)
+3:10:49 PM
+[Platform] Detected: Tauri (Desktop Mode)
+3:10:49 PM
+[Tauri] Using global __TAURI__.core.invoke
+3:10:49 PM
+[Query] Tauri mode: /api/favorites
+3:10:49 PM
+[Query] Invoking: get_favorites
+3:10:49 PM
+[Platform] Detected: Tauri (Desktop Mode)
+3:10:49 PM
+[API] Tauri mode: GET /api/settings/autostart
+3:10:49 PM
+[Tauri] Using global __TAURI__.core.invoke
+3:10:49 PM
+[API] Invoking: get_settings (filtering by key: autostart)
+3:10:49 PM
+[Platform] Detected: Tauri (Desktop Mode)
+3:10:49 PM
+[API] Tauri mode: GET /api/settings/strictMode
+3:10:49 PM
+[Tauri] Using global __TAURI__.core.invoke
+3:10:49 PM
+[API] Invoking: get_settings (filtering by key: strictMode)
+3:10:49 PM
+[Platform] Detected: Tauri (Desktop Mode)
+3:10:49 PM
+[API] Tauri mode: GET /api/settings/defaultBlockMode
+3:10:49 PM
+[Tauri] Using global __TAURI__.core.invoke
+3:10:49 PM
+[API] Invoking: get_settings (filtering by key: defaultBlockMode)
+3:10:49 PM
+[Platform] Detected: Tauri (Desktop Mode)
+3:10:49 PM
+[API] Tauri mode: GET /api/settings/notificationCadence
+3:10:49 PM
+[Tauri] Using global __TAURI__.core.invoke
+3:10:49 PM
+[API] Invoking: get_settings (filtering by key: notificationCadence)
+3:10:54 PM
+Edit rule for C:\Users\satvi\AppData\Local\Discord
+3:10:55 PM
+Edit rule for C:\Users\satvi\AppData\Local\Discord
+3:11:03 PM
+[API] Tauri mode: PATCH /api/block-rules/dd1cb681-ee7d-4062-a27c-08d24c0aa0f9
+3:11:03 PM
+[Tauri] Using global __TAURI__.core.invoke
+3:11:03 PM
+[API] Invoking: update_block_rule (id: dd1cb681-ee7d-4062-a27c-08d24c0aa0f9)
+3:11:03 PM
+[API] Tauri command failed: invalid args `updates` for command `update_block_rule`: missing field `appId`
+3:11:03 PM
+Failed to toggle rule mode: {}
