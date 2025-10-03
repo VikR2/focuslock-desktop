@@ -21,6 +21,11 @@ Preferred communication style: Simple, everyday language.
 - **State Management**: TanStack React Query for server state, local component state for UI interactions
 - **Routing**: Wouter for lightweight client-side routing
 - **Component Structure**: Modular components for SessionTimer, SessionPanel, FavoritesBar, AppSearch, RulesTable, and SettingsPanel
+- **UI Design (Updated: October 2025)**:
+  - Compact search bar integrated directly on home page for streamlined workflow
+  - Removed dedicated /search page in favor of dropdown results
+  - Real icon display with fallback to app-specific Lucide icons (Discord→MessageCircle, Spotify→Music, etc.)
+  - Right-click context menus on favorites and blocked apps with mode indicators
 
 ### Backend Architecture
 
@@ -105,9 +110,16 @@ Preferred communication style: Simple, everyday language.
 ### Desktop-Specific Features
 - **Windows Integration**:
   - Registry-based installed app detection using `winreg` crate
+  - Real icon extraction using `exeico` crate (extracts ICO from EXE, converts to 32x32 PNG, returns base64)
   - Real-time process monitoring with `sysinfo` crate  
   - Native Windows notifications
   - NSIS installer packaging
+
+- **Linux Integration**:
+  - Desktop file parsing using `freedesktop-desktop-entry` crate
+  - Icon theme resolution from /usr/share/icons, /usr/share/pixmaps
+  - SVG and PNG icon support with automatic format detection
+  - Graceful fallback to Lucide icons when icons unavailable
 
 - **Data Persistence**:
   - SQLite database stored in app data directory
@@ -119,6 +131,7 @@ Preferred communication style: Simple, everyday language.
   - Frontend uses Tauri `invoke()` API to call Rust functions
   - Automatic detection: uses Tauri commands in desktop, HTTP fetch in web
   - Type-safe communication with serialization/deserialization
+  - Icon extraction integrated with FavoritesBar and BlockedAppsList components
 
 ### Build Configuration (Simplified: October 2025)
 - **Streamlined Build System**: Single `build.sh` script for both platforms
