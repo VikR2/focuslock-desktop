@@ -121,7 +121,7 @@ export default function AppSearch({
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => onAddToBlockList(app, 'soft')}
+                            onClick={() => onAddToBlockList(app, 'hard')}
                             data-testid={`button-block-${app.appId}`}
                           >
                             <Shield className="w-3 h-3 mr-1" />
@@ -217,25 +217,14 @@ export default function AppSearch({
 
                     <div className="flex items-center space-x-2">
                       {!app.isBlocked && (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => onAddToBlockList(app, 'soft')}
-                            data-testid={`button-block-soft-${app.appId}`}
-                          >
-                            <Shield className="w-3 h-3 mr-1" />
-                            Soft Block
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => onAddToBlockList(app, 'hard')}
-                            data-testid={`button-block-hard-${app.appId}`}
-                          >
-                            <Shield className="w-3 h-3 mr-1" />
-                            Hard Block
-                          </Button>
-                        </>
+                        <Button
+                          size="sm"
+                          onClick={() => onAddToBlockList(app, 'hard')}
+                          data-testid={`button-block-${app.appId}`}
+                        >
+                          <Shield className="w-3 h-3 mr-1" />
+                          Block
+                        </Button>
                       )}
                       
                       <Button
@@ -270,17 +259,9 @@ export default function AppSearch({
         <div className="text-center py-8 text-muted-foreground">
           <Search className="w-12 h-12 mx-auto mb-4 opacity-50" />
           <h4 className="font-medium mb-2">Find Apps to Block</h4>
-          <p className="text-sm mb-4">
+          <p className="text-sm">
             Search for applications you want to block during focus sessions
           </p>
-          <div className="grid grid-cols-2 gap-2 max-w-sm mx-auto text-xs">
-            <div className="bg-muted/50 rounded p-2">
-              <strong>Soft Block:</strong> Minimize and show reminder
-            </div>
-            <div className="bg-muted/50 rounded p-2">
-              <strong>Hard Block:</strong> Prevent app from running
-            </div>
-          </div>
         </div>
       )}
     </div>

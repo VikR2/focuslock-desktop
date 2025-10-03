@@ -1,23 +1,52 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { 
   Shield, 
-  ShieldAlert,
   Monitor,
   Gamepad2,
   Globe,
   Music,
   MessageCircle,
   Users,
-  Play
+  Play,
+  Trash2
 } from "lucide-react";
 import { useBlockRules } from "@/hooks/useBlockRules";
 import { useFavorites } from "@/hooks/useFavorites";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useMutation } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import type { BlockRule, Favorite } from "@shared/schema";
 
 export default function BlockedAppsList() {
   const { data: blockRules = [] } = useBlockRules();
   const { data: favorites = [] } = useFavorites();
+  const { toast } = useToast();
+  
+  const deleteBlockRuleMutation = useMutation({
+    mutationFn: async (ruleId: string) => {
+      return await apiRequest("DELETE", `/api/block-rules/${ruleId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/block-rules"] });
+      toast({
+        title: "Block rule removed",
+        description: "The app is no longer blocked",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to remove block rule",
+        variant: "destructive",
+      });
+    },
+  });
   
   const getAppIcon = (appId: string) => {
     const appLower = appId.toLowerCase();
@@ -71,25 +100,30 @@ export default function BlockedAppsList() {
       <CardContent>
         <div className="space-y-2">
           {blockedApps.map((app) => (
-            <div
-              key={app.id}
-              className="flex items-center justify-between p-2 rounded-md border border-border hover-elevate"
-              data-testid={`blocked-app-${app.appId}`}
-            >
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <app.IconComponent className="w-4 h-4 text-sidebar-foreground flex-shrink-0" />
-                <span className="text-sm truncate" data-testid={`text-app-name-${app.appId}`}>
-                  {app.displayName}
-                </span>
-              </div>
-              <Badge
-                variant={app.mode === 'hard' ? 'destructive' : 'secondary'}
-                className="text-xs flex-shrink-0"
-                data-testid={`badge-mode-${app.appId}`}
-              >
-                {app.mode === 'hard' ? 'Hard' : 'Soft'}
-              </Badge>
-            </div>
+            <ContextMenu key={app.id}>
+              <ContextMenuTrigger>
+                <div
+                  className="flex items-center justify-between p-2 rounded-md border border-border hover-elevate"
+                  data-testid={`blocked-app-${app.appId}`}
+                >
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <app.IconComponent className="w-4 h-4 text-sidebar-foreground flex-shrink-0" />
+                    <span className="text-sm truncate" data-testid={`text-app-name-${app.appId}`}>
+                      {app.displayName}
+                    </span>
+                  </div>
+                </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                <ContextMenuItem
+                  onClick={() => deleteBlockRuleMutation.mutate(app.id)}
+                  data-testid={`context-remove-block-${app.appId}`}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Remove Block
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
           ))}
         </div>
       </CardContent>
