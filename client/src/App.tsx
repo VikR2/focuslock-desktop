@@ -17,7 +17,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Clock, Search, Shield, Settings, Monitor, ScrollText } from "lucide-react";
+import { Clock, Shield, Settings, Monitor, ScrollText } from "lucide-react";
 
 // Components
 import SessionTimer from "@/components/SessionTimer";
