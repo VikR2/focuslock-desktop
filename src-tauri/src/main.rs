@@ -183,7 +183,7 @@ fn kill_process(_process_name: String) -> Result<String, String> {
 #[tauri::command]
 async fn get_app_icon(app_path: String) -> Result<String, String> {
     use std::path::Path;
-    use image::{ImageEncoder, DynamicImage};
+    use image::ImageEncoder;
     use exeico::get_exe_ico;
     
     // Extract the actual exe path from DisplayIcon format
