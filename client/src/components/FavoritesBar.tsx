@@ -159,15 +159,18 @@ export default function FavoritesBar({
 
   const getAppIcon = (appId: string) => {
     // Using Lucide icons for proper app representation
-    const iconMapping: Record<string, string> = {
-      'discord.exe': 'gamepad-2',
-      'chrome.exe': 'globe',
-      'steam.exe': 'play',
-      'spotify.exe': 'music',
-      'slack.exe': 'message-circle',
-      'teams.exe': 'users',
-    };
-    return iconMapping[appId] || 'monitor';
+    const appLower = appId.toLowerCase();
+    
+    // Check for common app patterns
+    if (appLower.includes('discord')) return 'message-circle';
+    if (appLower.includes('chrome') || appLower.includes('firefox') || appLower.includes('edge')) return 'globe';
+    if (appLower.includes('steam') || appLower.includes('epic') || appLower.includes('origin')) return 'gamepad-2';
+    if (appLower.includes('spotify') || appLower.includes('music')) return 'music';
+    if (appLower.includes('slack') || appLower.includes('teams') || appLower.includes('zoom')) return 'users';
+    if (appLower.includes('vscode') || appLower.includes('code') || appLower.includes('pycharm')) return 'monitor';
+    if (appLower.includes('netflix') || appLower.includes('youtube') || appLower.includes('twitch')) return 'play';
+    
+    return 'monitor';
   };
 
   return (

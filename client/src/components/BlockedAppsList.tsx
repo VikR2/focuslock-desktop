@@ -1,6 +1,16 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Shield, ShieldAlert } from "lucide-react";
+import { 
+  Shield, 
+  ShieldAlert,
+  Monitor,
+  Gamepad2,
+  Globe,
+  Music,
+  MessageCircle,
+  Users,
+  Play
+} from "lucide-react";
 import { useBlockRules } from "@/hooks/useBlockRules";
 import { useFavorites } from "@/hooks/useFavorites";
 import type { BlockRule, Favorite } from "@shared/schema";
@@ -9,12 +19,26 @@ export default function BlockedAppsList() {
   const { data: blockRules = [] } = useBlockRules();
   const { data: favorites = [] } = useFavorites();
   
+  const getAppIcon = (appId: string) => {
+    const appLower = appId.toLowerCase();
+    
+    if (appLower.includes('discord')) return MessageCircle;
+    if (appLower.includes('chrome') || appLower.includes('firefox') || appLower.includes('edge')) return Globe;
+    if (appLower.includes('steam') || appLower.includes('epic') || appLower.includes('origin')) return Gamepad2;
+    if (appLower.includes('spotify') || appLower.includes('music')) return Music;
+    if (appLower.includes('slack') || appLower.includes('teams') || appLower.includes('zoom')) return Users;
+    if (appLower.includes('netflix') || appLower.includes('youtube') || appLower.includes('twitch')) return Play;
+    
+    return Monitor;
+  };
+  
   // Get display names for blocked apps from favorites
   const blockedApps = (blockRules as BlockRule[]).map((rule) => {
     const favorite = (favorites as Favorite[]).find((fav) => fav.appId === rule.appId);
     return {
       ...rule,
       displayName: favorite?.displayName || rule.appId,
+      IconComponent: getAppIcon(rule.appId),
     };
   });
   
@@ -53,11 +77,7 @@ export default function BlockedAppsList() {
               data-testid={`blocked-app-${app.appId}`}
             >
               <div className="flex items-center gap-2 flex-1 min-w-0">
-                {app.mode === 'hard' ? (
-                  <ShieldAlert className="w-4 h-4 text-destructive flex-shrink-0" />
-                ) : (
-                  <Shield className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                )}
+                <app.IconComponent className="w-4 h-4 text-sidebar-foreground flex-shrink-0" />
                 <span className="text-sm truncate" data-testid={`text-app-name-${app.appId}`}>
                   {app.displayName}
                 </span>
