@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ContextMenu,
@@ -18,7 +19,7 @@ import {
 } from "lucide-react";
 import { useBlockRules } from "@/hooks/useBlockRules";
 import { useFavorites } from "@/hooks/useFavorites";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, callTauriCommand } from "@/lib/queryClient";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import type { BlockRule, Favorite } from "@shared/schema";
@@ -27,6 +28,31 @@ export default function BlockedAppsList() {
   const { data: blockRules = [] } = useBlockRules();
   const { data: favorites = [] } = useFavorites();
   const { toast } = useToast();
+  const [appIcons, setAppIcons] = useState<Record<string, string>>({});
+  
+  // Fetch icons for each blocked app
+  useEffect(() => {
+    const fetchIcons = async () => {
+      for (const rule of blockRules as BlockRule[]) {
+        const favorite = (favorites as Favorite[]).find((fav) => fav.appId === rule.appId);
+        if (!appIcons[rule.appId] && favorite?.iconHint) {
+          try {
+            const iconData = await callTauriCommand<string>('get_app_icon', { appPath: favorite.iconHint });
+            setAppIcons(prev => ({
+              ...prev,
+              [rule.appId]: iconData
+            }));
+          } catch (error) {
+            console.warn(`Failed to load icon for ${rule.appId}:`, error);
+          }
+        }
+      }
+    };
+    
+    if (blockRules.length > 0 && favorites.length > 0) {
+      fetchIcons();
+    }
+  }, [blockRules, favorites]);
   
   const deleteBlockRuleMutation = useMutation({
     mutationFn: async (ruleId: string) => {
@@ -107,7 +133,15 @@ export default function BlockedAppsList() {
                   data-testid={`blocked-app-${app.appId}`}
                 >
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <app.IconComponent className="w-4 h-4 text-sidebar-foreground flex-shrink-0" />
+                    {appIcons[app.appId] ? (
+                      <img 
+                        src={appIcons[app.appId]} 
+                        alt={app.displayName} 
+                        className="w-4 h-4 object-contain flex-shrink-0"
+                      />
+                    ) : (
+                      <app.IconComponent className="w-4 h-4 text-sidebar-foreground flex-shrink-0" />
+                    )}
                     <span className="text-sm truncate" data-testid={`text-app-name-${app.appId}`}>
                       {app.displayName}
                     </span>

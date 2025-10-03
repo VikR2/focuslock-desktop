@@ -98,7 +98,7 @@ export default function FavoritesBar({
     return {
       ...favorite,
       isBlocked: !!blockRule,
-      blockMode: (blockRule?.mode as BlockMode) || 'soft',
+      blockMode: (blockRule?.mode as BlockMode) || 'hard',
     };
   });
   
@@ -115,19 +115,9 @@ export default function FavoritesBar({
         await addBlockRuleMutation.mutateAsync({
           appId,
           matchKind: 'exe',
-          mode: 'soft',
+          mode: 'hard',
         });
       }
-    }
-  };
-  
-  const handleToggleMode = async (appId: string, mode: BlockMode) => {
-    const blockRule = (blockRules as BlockRule[]).find((rule: BlockRule) => rule.appId === appId);
-    if (blockRule) {
-      await updateBlockRuleMutation.mutateAsync({
-        id: blockRule.id,
-        updates: { mode },
-      });
     }
   };
   
@@ -233,10 +223,10 @@ export default function FavoritesBar({
               {favorite.isBlocked && (
                 <div className="absolute -top-1 -right-1">
                   <Badge 
-                    variant={favorite.blockMode === 'hard' ? 'destructive' : 'secondary'}
+                    variant="destructive"
                     className="w-5 h-5 p-0 flex items-center justify-center text-xs"
                   >
-                    {favorite.blockMode === 'hard' ? '!' : '~'}
+                    !
                   </Badge>
                 </div>
               )}
@@ -274,28 +264,6 @@ export default function FavoritesBar({
                     )}
                   </DropdownMenuItem>
                   
-                  {favorite.isBlocked && (
-                    <DropdownMenuItem 
-                      onClick={() => handleToggleMode(
-                        favorite.appId, 
-                        favorite.blockMode === 'hard' ? 'soft' : 'hard'
-                      )}
-                      data-testid={`menu-toggle-mode-${favorite.appId}`}
-                    >
-                      {favorite.blockMode === 'hard' ? (
-                        <>
-                          <ShieldOff className="w-4 h-4 mr-2" />
-                          Soft Block
-                        </>
-                      ) : (
-                        <>
-                          <Shield className="w-4 h-4 mr-2" />
-                          Hard Block
-                        </>
-                      )}
-                    </DropdownMenuItem>
-                  )}
-                  
                   <DropdownMenuItem 
                     onClick={() => handleRemoveFavorite(favorite.id)}
                     data-testid={`menu-remove-favorite-${favorite.appId}`}
@@ -313,7 +281,7 @@ export default function FavoritesBar({
               {favorite.displayName}
               {favorite.isBlocked && (
                 <span className="ml-1 text-destructive">
-                  ({favorite.blockMode} blocked)
+                  (blocked)
                 </span>
               )}
             </div>
