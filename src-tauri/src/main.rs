@@ -183,7 +183,8 @@ fn kill_process(_process_name: String) -> Result<String, String> {
 #[tauri::command]
 async fn get_app_icon(app_path: String) -> Result<String, String> {
     use std::path::Path;
-    use image::{ImageBuffer, Rgba, ImageEncoder};
+    use image::{ImageEncoder, DynamicImage};
+    use exeico::get_exe_ico;
     
     // Extract the actual exe path from DisplayIcon format
     // DisplayIcon can be "C:\path\to\app.exe,0" or just "C:\path\to\app.exe"
@@ -193,32 +194,121 @@ async fn get_app_icon(app_path: String) -> Result<String, String> {
         return Err(format!("File not found: {}", exe_path));
     }
     
-    // Create a colored placeholder image based on app name hash
-    let img: ImageBuffer<Rgba<u8>, Vec<u8>> = ImageBuffer::from_fn(32, 32, |x, y| {
-        let hash = app_path.bytes().sum::<u8>();
-        let r = ((hash as u32 * 13) % 256) as u8;
-        let g = ((hash as u32 * 17) % 256) as u8;
-        let b = ((hash as u32 * 19) % 256) as u8;
-        
-        // Add pattern for visual interest
-        let alpha = if (x + y) % 8 < 4 { 255 } else { 200 };
-        Rgba([r, g, b, alpha])
-    });
+    // Try to extract the real icon from the exe
+    match get_exe_ico(exe_path) {
+        Ok(ico_data) => {
+            // Convert ICO to PNG
+            match image::load_from_memory(&ico_data) {
+                Ok(img) => {
+                    // Resize to 32x32 for consistency
+                    let resized = img.resize_exact(32, 32, image::imageops::FilterType::Lanczos3);
+                    
+                    // Encode to PNG
+                    let mut png_data = Vec::new();
+                    let encoder = image::codecs::png::PngEncoder::new(&mut png_data);
+                    let rgba = resized.to_rgba8();
+                    encoder.write_image(&rgba, 32, 32, image::ExtendedColorType::Rgba8)
+                        .map_err(|e| format!("Failed to encode PNG: {}", e))?;
+                    
+                    let base64_image = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &png_data);
+                    Ok(format!("data:image/png;base64,{}", base64_image))
+                }
+                Err(_) => {
+                    // If ICO loading failed, just return the raw ICO data as base64
+                    let base64_image = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &ico_data);
+                    Ok(format!("data:image/x-icon;base64,{}", base64_image))
+                }
+            }
+        }
+        Err(e) => {
+            Err(format!("Failed to extract icon: {}", e))
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[tauri::command]
+async fn get_app_icon(icon_hint: String) -> Result<String, String> {
+    use std::path::PathBuf;
+    use image::ImageEncoder;
     
-    // Encode to PNG and convert to base64
+    // icon_hint could be an icon name or path
+    let icon_path = if icon_hint.starts_with('/') {
+        // Absolute path
+        PathBuf::from(&icon_hint)
+    } else {
+        // Icon name - search standard locations
+        find_linux_icon(&icon_hint).ok_or("Icon not found")?
+    };
+    
+    if !icon_path.exists() {
+        return Err(format!("Icon file not found: {:?}", icon_path));
+    }
+    
+    // Load the icon image
+    let img = image::open(&icon_path)
+        .map_err(|e| format!("Failed to load icon: {}", e))?;
+    
+    // Resize to 32x32 for consistency
+    let resized = img.resize_exact(32, 32, image::imageops::FilterType::Lanczos3);
+    
+    // Encode to PNG
     let mut png_data = Vec::new();
     let encoder = image::codecs::png::PngEncoder::new(&mut png_data);
-    encoder.write_image(&img, 32, 32, image::ExtendedColorType::Rgba8)
-        .map_err(|e| format!("Failed to encode image: {}", e))?;
+    let rgba = resized.to_rgba8();
+    encoder.write_image(&rgba, 32, 32, image::ExtendedColorType::Rgba8)
+        .map_err(|e| format!("Failed to encode PNG: {}", e))?;
     
     let base64_image = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &png_data);
     Ok(format!("data:image/png;base64,{}", base64_image))
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "linux")]
+fn find_linux_icon(icon_name: &str) -> Option<PathBuf> {
+    let sizes = vec![48, 64, 128, 256, 32];
+    let formats = vec!["png", "svg", "xpm"];
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+    
+    // Search icon theme paths in order of priority
+    for size in &sizes {
+        for fmt in &formats {
+            let paths = vec![
+                format!("/usr/share/icons/hicolor/{}x{}/apps/{}.{}", size, size, icon_name, fmt),
+                format!("{}/.local/share/icons/hicolor/{}x{}/apps/{}.{}", home, size, size, icon_name, fmt),
+                format!("/usr/share/icons/gnome/{}x{}/apps/{}.{}", size, size, icon_name, fmt),
+            ];
+            
+            for path in paths {
+                let p = PathBuf::from(&path);
+                if p.exists() {
+                    return Some(p);
+                }
+            }
+        }
+    }
+    
+    // Check pixmaps as fallback
+    for fmt in &formats {
+        let paths = vec![
+            format!("/usr/share/pixmaps/{}.{}", icon_name, fmt),
+            format!("{}/.local/share/pixmaps/{}.{}", home, icon_name, fmt),
+        ];
+        
+        for path in paths {
+            let p = PathBuf::from(&path);
+            if p.exists() {
+                return Some(p);
+            }
+        }
+    }
+    
+    None
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
 #[tauri::command]
 async fn get_app_icon(_app_path: String) -> Result<String, String> {
-    Err("Icon extraction not implemented on this platform yet".to_string())
+    Err("Icon extraction not implemented on this platform".to_string())
 }
 
 #[cfg(target_os = "windows")]

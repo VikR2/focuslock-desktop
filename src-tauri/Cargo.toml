@@ -25,3 +25,7 @@ base64 = "0.22"
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"
 sysinfo = "0.31"
+exeico = "0.1"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+freedesktop-desktop-entry = "0.7"
