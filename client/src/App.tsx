@@ -55,12 +55,6 @@ function AppSidebar() {
       id: "timer",
     },
     {
-      title: "Search Apps",
-      url: "/search",
-      icon: Search,
-      id: "search",
-    },
-    {
       title: "Block Rules",
       url: "/rules",
       icon: Shield,
@@ -221,34 +215,34 @@ function Router() {
         <Switch>
           <Route path="/" component={() => (
             <div className="flex-1 p-6">
-              <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="space-y-6">
-                  <div className="flex justify-center">
-                    <SessionTimer 
-                      selectedDuration={selectedDuration}
-                    />
-                  </div>
-                  <BlockedAppsList />
-                </div>
-                <div className="flex justify-center">
-                  <SessionPanel 
-                    selectedDuration={selectedDuration}
-                    onDurationChange={setSelectedDuration}
+              <div className="max-w-4xl mx-auto space-y-6">
+                {/* Compact Search Bar */}
+                <div className="w-full max-w-md mx-auto">
+                  <AppSearch 
+                    onAddToBlockList={handleAddToBlockList}
+                    onAddToFavorites={handleAddToFavorites}
+                    blockedApps={blockRules.map(rule => rule.appId)}
+                    compact={true}
                   />
                 </div>
-              </div>
-            </div>
-          )} />
-          
-          <Route path="/search" component={() => (
-            <div className="flex-1 p-6">
-              <div className="max-w-4xl mx-auto">
-                <h1 className="text-2xl font-semibold mb-6">Search Applications</h1>
-                <AppSearch 
-                  onAddToBlockList={handleAddToBlockList}
-                  onAddToFavorites={handleAddToFavorites}
-                  blockedApps={blockRules.map(rule => rule.appId)}
-                />
+                
+                {/* Timer and Session Panel */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="space-y-6">
+                    <div className="flex justify-center">
+                      <SessionTimer 
+                        selectedDuration={selectedDuration}
+                      />
+                    </div>
+                    <BlockedAppsList />
+                  </div>
+                  <div className="flex justify-center">
+                    <SessionPanel 
+                      selectedDuration={selectedDuration}
+                      onDurationChange={setSelectedDuration}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           )} />
