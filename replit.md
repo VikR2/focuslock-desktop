@@ -12,6 +12,18 @@ FocusLock is a cross-platform productivity application available as both a web a
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (October 10, 2025)
+
+### Icon Display Fix for Blocked Apps
+- **Problem Fixed**: Icons weren't displaying for blocked apps in desktop mode because block rules only stored appId without the icon path
+- **Solution**: Added `iconHint` field to block_rules schema (both TypeScript and Rust)
+  - Block rules now store the full .exe path for icon extraction
+  - BlockedAppsList component fetches icons directly from block rule data (no longer depends on favorites)
+  - Frontend passes app.iconHint when creating block rules
+- **Migration**: Added automatic database migration in DbState::new to handle existing installations
+  - Uses ALTER TABLE to add icon_hint column if missing
+  - Safe for both new and upgraded installations
+
 ## System Architecture
 
 ### Frontend Architecture
