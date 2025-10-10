@@ -8,7 +8,7 @@ const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
 interface TauriAppInfo {
   name: string;
   path?: string;
-  icon?: string;
+  iconHint?: string;
 }
 
 // Convert Tauri app info to AppSummary format
@@ -17,7 +17,7 @@ function convertTauriApp(app: TauriAppInfo): AppSummary {
     appId: app.path || app.name.toLowerCase().replace(/\s+/g, '-'),
     displayName: app.name,
     exeOrTarget: app.path,
-    iconHint: app.name.toLowerCase().split(/[\s.]+/)[0], // First word as icon hint
+    iconHint: app.iconHint || app.path, // Use real icon path from Windows registry or exe path
   };
 }
 

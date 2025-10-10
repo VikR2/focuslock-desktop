@@ -14,15 +14,22 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (October 10, 2025)
 
-### Icon Display Fix for Blocked Apps
-- **Problem Fixed**: Icons weren't displaying for blocked apps in desktop mode because block rules only stored appId without the icon path
-- **Solution**: Added `iconHint` field to block_rules schema (both TypeScript and Rust)
-  - Block rules now store the full .exe path for icon extraction
-  - BlockedAppsList component fetches icons directly from block rule data (no longer depends on favorites)
-  - Frontend passes app.iconHint when creating block rules
-- **Migration**: Added automatic database migration in DbState::new to handle existing installations
-  - Uses ALTER TABLE to add icon_hint column if missing
-  - Safe for both new and upgraded installations
+### Icon Display Fix for Blocked Apps (Completed)
+- **Problem Fixed**: Icons weren't displaying for blocked apps in desktop mode
+  - Block rules only stored appId without the icon path
+  - Frontend was generating fake icon paths (like "discord") instead of using real executable paths
+  - get_app_icon was receiving fake paths and failing with "File not found" errors
+
+- **Solution Implemented**:
+  1. **Schema Update**: Added `iconHint` field to block_rules (both TypeScript and Rust)
+  2. **Database Migration**: Added ALTER TABLE to safely add icon_hint column to existing installations
+  3. **Frontend Fix**: Corrected useAppSearch.ts to use real icon paths from Rust backend
+     - Changed TauriAppInfo interface to use `iconHint` (matches Rust camelCase serialization)
+     - Updated conversion to use actual paths: `app.iconHint || app.path` instead of fake app names
+  4. **Graceful Fallback**: System handles missing iconHints correctly
+     - Only fetches icons when iconHint is present
+     - Falls back to Lucide icons when path is unavailable or fetch fails
+     - Rust code normalizes DisplayIcon paths (strips quotes and `,0` suffix)
 
 ## System Architecture
 
