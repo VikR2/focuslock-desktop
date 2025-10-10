@@ -1,0 +1,104 @@
+9:17:38 AM
+[Platform] Detected: Tauri (Desktop Mode)
+LOG
+9:17:38 AM
+[API] Tauri mode: GET /api/settings/hotkeysEnabled
+LOG
+9:17:38 AM
+[Tauri] Using global __TAURI__.core.invoke
+LOG
+9:17:38 AM
+[API] Invoking: get_settings (filtering by key: hotkeysEnabled)
+WARN
+9:17:38 AM
+IPC custom protocol failed, Tauri will now use the postMessage interface instead {}
+LOG
+9:17:38 AM
+[Platform] Detected: Tauri (Desktop Mode)
+LOG
+9:17:38 AM
+[API] Tauri mode: GET /api/settings/strictMode
+LOG
+9:17:38 AM
+[Tauri] Using global __TAURI__.core.invoke
+LOG
+9:17:38 AM
+[API] Invoking: get_settings (filtering by key: strictMode)
+LOG
+9:17:38 AM
+[Platform] Detected: Tauri (Desktop Mode)
+LOG
+9:17:38 AM
+[API] Tauri mode: GET /api/settings/autostart
+LOG
+9:17:38 AM
+[Tauri] Using global __TAURI__.core.invoke
+LOG
+9:17:38 AM
+[API] Invoking: get_settings (filtering by key: autostart)
+LOG
+9:17:38 AM
+[Platform] Detected: Tauri (Desktop Mode)
+LOG
+9:17:38 AM
+[API] Tauri mode: GET /api/settings/notificationCadence
+LOG
+9:17:38 AM
+[Tauri] Using global __TAURI__.core.invoke
+LOG
+9:17:38 AM
+[API] Invoking: get_settings (filtering by key: notificationCadence)
+LOG
+9:17:38 AM
+[Platform] Detected: Tauri (Desktop Mode)
+LOG
+9:17:38 AM
+[API] Tauri mode: GET /api/settings/defaultBlockMode
+LOG
+9:17:38 AM
+[Tauri] Using global __TAURI__.core.invoke
+LOG
+9:17:38 AM
+[API] Invoking: get_settings (filtering by key: defaultBlockMode)
+LOG
+9:17:38 AM
+[Platform] Detected: Tauri (Desktop Mode)
+LOG
+9:17:38 AM
+[Tauri] Using global __TAURI__.core.invoke
+LOG
+9:17:38 AM
+[Query] Tauri mode: /api/block-rules
+LOG
+9:17:38 AM
+[Query] Invoking: get_block_rules
+LOG
+9:17:38 AM
+[Platform] Detected: Tauri (Desktop Mode)
+LOG
+9:17:38 AM
+[Tauri] Using global __TAURI__.core.invoke
+LOG
+9:17:38 AM
+[Query] Tauri mode: /api/favorites
+LOG
+9:17:38 AM
+[Query] Invoking: get_favorites
+LOG
+9:17:38 AM
+[Tauri] Using global __TAURI__.core.invoke
+WARN
+9:17:38 AM
+Failed to load icon for C:\Program Files\WindowsApps\TradingView.Desktop_2.13.0.7353_x64__n534cwy3pjxzj\TradingView.exe: File not found: tradingview
+LOG
+9:17:38 AM
+[Tauri] Using global __TAURI__.core.invoke
+WARN
+9:17:38 AM
+Failed to load icon for C:\Users\satvi\AppData\Local\Discord: File not found: discord
+LOG
+9:17:38 AM
+[Tauri] Using global __TAURI__.core.invoke
+WARN
+9:17:38 AM
+Failed to load icon for ninjatrader: File not found: ninjatrader
