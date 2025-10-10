@@ -30,14 +30,13 @@ export default function BlockedAppsList() {
   const { toast } = useToast();
   const [appIcons, setAppIcons] = useState<Record<string, string>>({});
   
-  // Fetch icons for each blocked app
+  // Fetch icons for each blocked app using iconHint from block rule
   useEffect(() => {
     const fetchIcons = async () => {
       for (const rule of blockRules as BlockRule[]) {
-        const favorite = (favorites as Favorite[]).find((fav) => fav.appId === rule.appId);
-        if (!appIcons[rule.appId] && favorite?.iconHint) {
+        if (!appIcons[rule.appId] && rule.iconHint) {
           try {
-            const iconData = await callTauriCommand<string>('get_app_icon', { appPath: favorite.iconHint });
+            const iconData = await callTauriCommand<string>('get_app_icon', { appPath: rule.iconHint });
             setAppIcons(prev => ({
               ...prev,
               [rule.appId]: iconData
@@ -49,10 +48,10 @@ export default function BlockedAppsList() {
       }
     };
     
-    if (blockRules.length > 0 && favorites.length > 0) {
+    if (blockRules.length > 0) {
       fetchIcons();
     }
-  }, [blockRules, favorites]);
+  }, [blockRules]);
   
   const deleteBlockRuleMutation = useMutation({
     mutationFn: async (ruleId: string) => {

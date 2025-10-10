@@ -17,6 +17,7 @@ export const blockRules = pgTable("block_rules", {
   appId: text("app_id").notNull(),
   matchKind: text("match_kind").notNull(), // 'exe'|'package'|'lnk'|'path'|'regex'
   mode: text("mode").notNull(), // 'hard'|'soft'
+  iconHint: text("icon_hint"),
 });
 
 export const sessions = pgTable("sessions", {

@@ -31,6 +31,7 @@ pub struct BlockRule {
     pub app_id: String,
     pub match_kind: String,
     pub mode: String,
+    pub icon_hint: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -39,6 +40,7 @@ pub struct InsertBlockRule {
     pub app_id: String,
     pub match_kind: String,
     pub mode: String,
+    pub icon_hint: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -47,6 +49,7 @@ pub struct UpdateBlockRule {
     pub app_id: Option<String>,
     pub match_kind: Option<String>,
     pub mode: Option<String>,
+    pub icon_hint: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -111,7 +114,8 @@ impl DbState {
                 id TEXT PRIMARY KEY,
                 app_id TEXT NOT NULL,
                 match_kind TEXT NOT NULL,
-                mode TEXT NOT NULL
+                mode TEXT NOT NULL,
+                icon_hint TEXT
             )",
             [],
         )?;
@@ -135,6 +139,14 @@ impl DbState {
             )",
             [],
         )?;
+
+        // Migration: Add icon_hint column to block_rules if it doesn't exist
+        // Check if column exists by trying to add it (SQLite allows ADD COLUMN only once)
+        let _ = conn.execute(
+            "ALTER TABLE block_rules ADD COLUMN icon_hint TEXT",
+            [],
+        );
+        // Ignore error if column already exists
 
         Ok(DbState {
             conn: Mutex::new(conn),
@@ -206,7 +218,7 @@ pub fn delete_favorite(db: State<DbState>, id: String) -> Result<(), String> {
 pub fn get_block_rules(db: State<DbState>) -> Result<Vec<BlockRule>, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
-        .prepare("SELECT id, app_id, match_kind, mode FROM block_rules")
+        .prepare("SELECT id, app_id, match_kind, mode, icon_hint FROM block_rules")
         .map_err(|e| e.to_string())?;
 
     let rules = stmt
@@ -216,6 +228,7 @@ pub fn get_block_rules(db: State<DbState>) -> Result<Vec<BlockRule>, String> {
                 app_id: row.get(1)?,
                 match_kind: row.get(2)?,
                 mode: row.get(3)?,
+                icon_hint: row.get(4)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -231,8 +244,8 @@ pub fn create_block_rule(db: State<DbState>, rule: InsertBlockRule) -> Result<Bl
     let id = Uuid::new_v4().to_string();
 
     conn.execute(
-        "INSERT INTO block_rules (id, app_id, match_kind, mode) VALUES (?1, ?2, ?3, ?4)",
-        (&id, &rule.app_id, &rule.match_kind, &rule.mode),
+        "INSERT INTO block_rules (id, app_id, match_kind, mode, icon_hint) VALUES (?1, ?2, ?3, ?4, ?5)",
+        (&id, &rule.app_id, &rule.match_kind, &rule.mode, &rule.icon_hint),
     )
     .map_err(|e| e.to_string())?;
 
@@ -241,6 +254,7 @@ pub fn create_block_rule(db: State<DbState>, rule: InsertBlockRule) -> Result<Bl
         app_id: rule.app_id,
         match_kind: rule.match_kind,
         mode: rule.mode,
+        icon_hint: rule.icon_hint,
     })
 }
 
@@ -250,7 +264,7 @@ pub fn update_block_rule(db: State<DbState>, id: String, updates: UpdateBlockRul
 
     // First, get the current rule
     let mut stmt = conn
-        .prepare("SELECT id, app_id, match_kind, mode FROM block_rules WHERE id = ?1")
+        .prepare("SELECT id, app_id, match_kind, mode, icon_hint FROM block_rules WHERE id = ?1")
         .map_err(|e| e.to_string())?;
     
     let mut current_rule = stmt
@@ -260,6 +274,7 @@ pub fn update_block_rule(db: State<DbState>, id: String, updates: UpdateBlockRul
                 app_id: row.get(1)?,
                 match_kind: row.get(2)?,
                 mode: row.get(3)?,
+                icon_hint: row.get(4)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -274,11 +289,14 @@ pub fn update_block_rule(db: State<DbState>, id: String, updates: UpdateBlockRul
     if let Some(mode) = updates.mode {
         current_rule.mode = mode;
     }
+    if let Some(icon_hint) = updates.icon_hint {
+        current_rule.icon_hint = Some(icon_hint);
+    }
 
     // Save the updated rule
     conn.execute(
-        "UPDATE block_rules SET app_id = ?1, match_kind = ?2, mode = ?3 WHERE id = ?4",
-        (&current_rule.app_id, &current_rule.match_kind, &current_rule.mode, &id),
+        "UPDATE block_rules SET app_id = ?1, match_kind = ?2, mode = ?3, icon_hint = ?4 WHERE id = ?5",
+        (&current_rule.app_id, &current_rule.match_kind, &current_rule.mode, &current_rule.icon_hint, &id),
     )
     .map_err(|e| e.to_string())?;
 

@@ -135,6 +135,7 @@ function Router() {
         appId: app.appId,
         matchKind: 'exe' as const,
         mode: mode,
+        iconHint: app.iconHint,
       });
       console.log(`Added ${app.displayName} to block list with ${mode} mode`);
     } catch (error) {
