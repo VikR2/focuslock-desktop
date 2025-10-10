@@ -16,10 +16,11 @@ struct MonitorState {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 struct AppInfo {
     name: String,
     path: Option<String>,
-    icon: Option<String>,
+    icon_hint: Option<String>,
 }
 
 #[cfg(target_os = "windows")]
@@ -66,7 +67,7 @@ async fn get_installed_apps() -> Result<Vec<AppInfo>, String> {
                         apps.push(AppInfo {
                             name: display_name,
                             path: install_location,
-                            icon: display_icon,
+                            icon_hint: display_icon,
                         });
                     }
                 }
@@ -115,7 +116,7 @@ async fn get_running_processes() -> Result<Vec<AppInfo>, String> {
         processes.push(AppInfo {
             name: name.clone(),
             path: exe_path,
-            icon: None,
+            icon_hint: None,
         });
     }
     
