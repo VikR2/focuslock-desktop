@@ -987,6 +987,7 @@ dependencies = [
  "exeico",
  "freedesktop-desktop-entry",
  "image",
+ "reqwest",
  "rusqlite",
  "serde",
  "serde_json",
