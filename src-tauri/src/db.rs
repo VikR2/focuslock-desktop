@@ -96,7 +96,7 @@ pub struct DbState {
 impl DbState {
     pub fn new(db_path: &str) -> SqliteResult<Self> {
         let conn = Connection::open(db_path)?;
-        
+
         // Create tables
         conn.execute(
             "CREATE TABLE IF NOT EXISTS favorites (
@@ -142,10 +142,7 @@ impl DbState {
 
         // Migration: Add icon_hint column to block_rules if it doesn't exist
         // Check if column exists by trying to add it (SQLite allows ADD COLUMN only once)
-        let _ = conn.execute(
-            "ALTER TABLE block_rules ADD COLUMN icon_hint TEXT",
-            [],
-        );
+        let _ = conn.execute("ALTER TABLE block_rules ADD COLUMN icon_hint TEXT", []);
         // Ignore error if column already exists
 
         Ok(DbState {
@@ -259,14 +256,18 @@ pub fn create_block_rule(db: State<DbState>, rule: InsertBlockRule) -> Result<Bl
 }
 
 #[tauri::command]
-pub fn update_block_rule(db: State<DbState>, id: String, updates: UpdateBlockRule) -> Result<BlockRule, String> {
+pub fn update_block_rule(
+    db: State<DbState>,
+    id: String,
+    updates: UpdateBlockRule,
+) -> Result<BlockRule, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
     // First, get the current rule
     let mut stmt = conn
         .prepare("SELECT id, app_id, match_kind, mode, icon_hint FROM block_rules WHERE id = ?1")
         .map_err(|e| e.to_string())?;
-    
+
     let mut current_rule = stmt
         .query_row([&id], |row| {
             Ok(BlockRule {
@@ -366,30 +367,49 @@ pub fn create_session(db: State<DbState>, session: InsertSession) -> Result<Sess
 }
 
 #[tauri::command]
-pub fn update_session(db: State<DbState>, id: String, updates: UpdateSession) -> Result<Session, String> {
+pub fn update_session(
+    db: State<DbState>,
+    id: String,
+    updates: UpdateSession,
+) -> Result<Session, String> {
     {
         let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
         // Build UPDATE statements for each field separately to handle Options
         if let Some(start_utc) = updates.start_utc {
-            conn.execute("UPDATE sessions SET start_utc = ?1 WHERE id = ?2", (start_utc, &id))
-                .map_err(|e| e.to_string())?;
+            conn.execute(
+                "UPDATE sessions SET start_utc = ?1 WHERE id = ?2",
+                (start_utc, &id),
+            )
+            .map_err(|e| e.to_string())?;
         }
         if let Some(end_utc) = updates.end_utc {
-            conn.execute("UPDATE sessions SET end_utc = ?1 WHERE id = ?2", (end_utc, &id))
-                .map_err(|e| e.to_string())?;
+            conn.execute(
+                "UPDATE sessions SET end_utc = ?1 WHERE id = ?2",
+                (end_utc, &id),
+            )
+            .map_err(|e| e.to_string())?;
         }
         if let Some(status) = updates.status {
-            conn.execute("UPDATE sessions SET status = ?1 WHERE id = ?2", (status, &id))
-                .map_err(|e| e.to_string())?;
+            conn.execute(
+                "UPDATE sessions SET status = ?1 WHERE id = ?2",
+                (status, &id),
+            )
+            .map_err(|e| e.to_string())?;
         }
         if let Some(duration_secs) = updates.duration_secs {
-            conn.execute("UPDATE sessions SET duration_secs = ?1 WHERE id = ?2", (duration_secs, &id))
-                .map_err(|e| e.to_string())?;
+            conn.execute(
+                "UPDATE sessions SET duration_secs = ?1 WHERE id = ?2",
+                (duration_secs, &id),
+            )
+            .map_err(|e| e.to_string())?;
         }
         if let Some(remaining_secs) = updates.remaining_secs {
-            conn.execute("UPDATE sessions SET remaining_secs = ?1 WHERE id = ?2", (remaining_secs, &id))
-                .map_err(|e| e.to_string())?;
+            conn.execute(
+                "UPDATE sessions SET remaining_secs = ?1 WHERE id = ?2",
+                (remaining_secs, &id),
+            )
+            .map_err(|e| e.to_string())?;
         }
     } // Release lock here
 
