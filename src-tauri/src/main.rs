@@ -78,303 +78,80 @@ fn sanitized_registry_value(value: &str) -> String {
 }
 
 #[cfg(target_os = "windows")]
-fn parse_command_path(command: &str) -> Option<PathBuf> {
-    let trimmed = command.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-
-    let candidate = if trimmed.starts_with('"') {
-        trimmed
-            .trim_start_matches('"')
-            .split('"')
-            .next()
-            .unwrap_or_default()
-            .to_string()
-    } else {
-        trimmed
-            .split_whitespace()
-            .next()
-            .unwrap_or_default()
-            .to_string()
-    };
-
-    let normalized = normalize_windows_path(&candidate);
-    if normalized.is_empty() {
-        return None;
-    }
-
-    Some(PathBuf::from(normalized))
-}
-
-#[cfg(target_os = "windows")]
-fn should_descend(dir_name: &str, name_hints: &[String]) -> bool {
-    if name_hints.is_empty() {
-        return true;
-    }
-
-    if dir_name.starts_with("app-")
-        || dir_name.starts_with("app")
-        || dir_name.starts_with("current")
-        || dir_name.starts_with("bin")
-        || dir_name.starts_with("client")
-        || dir_name.starts_with("package")
-        || dir_name
-            .chars()
-            .all(|c| c.is_ascii_digit() || c == '.' || c == '_')
-    {
-        return true;
-    }
-
-    name_hints
-        .iter()
-        .any(|hint| dir_name.contains(hint) || hint.contains(dir_name))
-}
-
-#[cfg(target_os = "windows")]
-fn search_directory_for_icon(
-    dir: &Path,
-    sanitized_hint: Option<&str>,
-    name_hints: &[String],
-    depth: usize,
-    allow_direct_join: bool,
-) -> Option<PathBuf> {
-    if depth == 0 || !dir.exists() {
-        return None;
-    }
-
-    if allow_direct_join {
-        if let Some(hint) = sanitized_hint {
-            let hint_path = Path::new(hint);
-            if !hint_path.is_absolute() {
-                let candidate = dir.join(hint_path);
-                if candidate.exists() {
-                    return Some(candidate);
-                }
-
-                if candidate.extension().is_none() {
-                    for ext in ["exe", "lnk", "ico", "appref-ms"] {
-                        let with_ext = candidate.with_extension(ext);
-                        if with_ext.exists() {
-                            return Some(with_ext);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    let entries = match fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(_) => return None,
-    };
-
-    for entry in entries.flatten().take(200) {
-        let file_type = match entry.file_type() {
-            Ok(ft) => ft,
-            Err(_) => continue,
-        };
-
-        let path = entry.path();
-        let name_lower = entry.file_name().to_string_lossy().to_ascii_lowercase();
-
-        if file_type.is_file() {
-            let ext_lower = path
-                .extension()
-                .and_then(|e| e.to_str())
-                .map(|s| s.to_ascii_lowercase());
-
-            let Some(ext) = ext_lower.as_deref() else {
-                continue;
-            };
-
-            if !matches!(ext, "exe" | "lnk" | "ico" | "appref-ms") {
-                continue;
-            }
-
-            let stem_lower = path
-                .file_stem()
-                .map(|s| s.to_string_lossy().to_ascii_lowercase());
-
-            let matches_hint = if name_hints.is_empty() {
-                true
-            } else {
-                name_hints.iter().any(|hint| {
-                    if name_lower == *hint {
-                        true
-                    } else if let Some(stem) = stem_lower.as_ref() {
-                        stem == hint
-                            || stem.starts_with(hint)
-                            || hint.starts_with(stem)
-                            || name_lower.contains(hint)
-                    } else {
-                        name_lower.contains(hint)
-                    }
-                })
-            };
-
-            if matches_hint {
-                return Some(path);
-            }
-        } else if file_type.is_dir() && depth > 1 {
-            if should_descend(&name_lower, name_hints) {
-                if let Some(found) =
-                    search_directory_for_icon(&path, sanitized_hint, name_hints, depth - 1, false)
-                {
-                    return Some(found);
-                }
-            }
-        }
-    }
-
-    None
-}
-
-#[cfg(target_os = "windows")]
-fn search_common_install_dirs(
-    sanitized_hint: Option<&str>,
-    name_hints: &[String],
-) -> Option<PathBuf> {
-    let mut roots = Vec::new();
-    for var in [
-        "LOCALAPPDATA",
-        "PROGRAMFILES",
-        "PROGRAMFILES(X86)",
-        "PROGRAMDATA",
-    ] {
-        if let Ok(value) = std::env::var(var) {
-            if !value.is_empty() {
-                let path = PathBuf::from(value);
-                if path.is_dir() {
-                    roots.push(path);
-                }
-            }
-        }
-    }
-
-    if let Ok(user_profile) = std::env::var("USERPROFILE") {
-        let programs = PathBuf::from(user_profile)
-            .join("AppData")
-            .join("Local")
-            .join("Programs");
-        if programs.is_dir() {
-            roots.push(programs);
-        }
-    }
-
-    for root in roots {
-        if let Some(found) = search_directory_for_icon(&root, sanitized_hint, name_hints, 2, true) {
-            return Some(found);
-        }
-    }
-
-    None
-}
-
-#[cfg(target_os = "windows")]
 fn resolve_display_icon(
-    display_name: &str,
     display_icon: Option<&str>,
-    install_location: Option<&Path>,
-    additional_paths: &[PathBuf],
+    install_location: Option<&str>,
 ) -> Option<String> {
-    let sanitized_display_icon = display_icon
-        .map(sanitized_registry_value)
-        .filter(|p| !p.is_empty());
+    let display_icon = display_icon?;
+    let sanitized_icon = sanitized_registry_value(display_icon);
 
-    if let Some(ref sanitized) = sanitized_display_icon {
-        let icon_path = PathBuf::from(sanitized);
-        if icon_path.is_absolute() && icon_path.exists() {
+    if sanitized_icon.is_empty() {
+        return None;
+    }
+
+    let icon_path = PathBuf::from(&sanitized_icon);
+
+    if icon_path.is_absolute() {
+        if icon_path.exists() {
             return Some(icon_path.to_string_lossy().into_owned());
         }
-    }
 
-    let mut name_hints: Vec<String> = Vec::new();
-
-    if let Some(ref sanitized) = sanitized_display_icon {
-        if let Some(file_name) = Path::new(sanitized).file_name().and_then(|n| n.to_str()) {
-            name_hints.push(file_name.to_string());
-            if let Some(stem) = Path::new(file_name).file_stem().and_then(|s| s.to_str()) {
-                if stem.len() >= 2 {
-                    name_hints.push(stem.to_string());
+        if icon_path.extension().is_none() {
+            for ext in ["exe", "lnk", "ico"] {
+                let with_ext = icon_path.with_extension(ext);
+                if with_ext.exists() {
+                    return Some(with_ext.to_string_lossy().into_owned());
                 }
             }
-        } else if !sanitized.is_empty() {
-            name_hints.push(sanitized.clone());
         }
     }
 
-    if !display_name.is_empty() {
-        name_hints.push(display_name.to_string());
-        let collapsed = display_name.replace([' ', '-', '_'], "");
-        if collapsed.len() >= 3 {
-            name_hints.push(collapsed);
+    let install_location = install_location.map(normalize_windows_path);
+    let Some(install_location) = install_location else {
+        return None;
+    };
+
+    if install_location.is_empty() {
+        return None;
+    }
+
+    let base = PathBuf::from(&install_location);
+    let mut candidate = base.join(&sanitized_icon);
+
+    if candidate.exists() {
+        return Some(candidate.to_string_lossy().into_owned());
+    }
+
+    if candidate.extension().is_none() {
+        for ext in ["exe", "lnk", "ico"] {
+            let with_ext = candidate.with_extension(ext);
+            if with_ext.exists() {
+                return Some(with_ext.to_string_lossy().into_owned());
+            }
         }
     }
 
-    let mut name_hints: Vec<String> = name_hints
-        .into_iter()
-        .map(|name| name.to_ascii_lowercase())
-        .filter(|name| !name.is_empty())
-        .collect();
-    name_hints.sort();
-    name_hints.dedup();
-
-    let sanitized_hint_str = sanitized_display_icon.as_deref();
-
-    if let Some(base) = install_location {
-        if let Some(ref sanitized) = sanitized_display_icon {
-            let candidate = base.join(Path::new(sanitized));
-            if candidate.exists() {
-                return Some(candidate.to_string_lossy().into_owned());
+    if let Ok(entries) = fs::read_dir(&base) {
+        let needle = sanitized_icon.to_lowercase();
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
             }
 
-            if candidate.extension().is_none() {
-                for ext in ["exe", "lnk", "ico", "appref-ms"] {
-                    let with_ext = candidate.with_extension(ext);
-                    if with_ext.exists() {
-                        return Some(with_ext.to_string_lossy().into_owned());
+            if let Some(file_name) = path.file_name().map(|n| n.to_string_lossy().to_lowercase()) {
+                if !file_name.starts_with(&needle) {
+                    continue;
+                }
+
+                if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                    let ext_lower = ext.to_ascii_lowercase();
+                    if matches!(ext_lower.as_str(), "exe" | "lnk" | "ico") {
+                        return Some(path.to_string_lossy().into_owned());
                     }
                 }
             }
         }
-
-        if let Some(found) =
-            search_directory_for_icon(base, sanitized_hint_str, &name_hints, 3, true)
-        {
-            return Some(found.to_string_lossy().into_owned());
-        }
-    }
-
-    for extra in additional_paths {
-        if extra.is_file() && extra.exists() {
-            return Some(extra.to_string_lossy().into_owned());
-        }
-
-        if let Some(parent) = extra.parent() {
-            if let Some(found) =
-                search_directory_for_icon(parent, sanitized_hint_str, &name_hints, 2, true)
-            {
-                return Some(found.to_string_lossy().into_owned());
-            }
-        }
-    }
-
-    if let Some(ref sanitized) = sanitized_display_icon {
-        let icon_path = PathBuf::from(sanitized);
-        if icon_path.is_absolute() {
-            if let Some(parent) = icon_path.parent() {
-                if let Some(found) =
-                    search_directory_for_icon(parent, sanitized_hint_str, &name_hints, 2, false)
-                {
-                    return Some(found.to_string_lossy().into_owned());
-                }
-            }
-        }
-    }
-
-    if let Some(found) = search_common_install_dirs(sanitized_hint_str, &name_hints) {
-        return Some(found.to_string_lossy().into_owned());
     }
 
     None
@@ -429,39 +206,15 @@ async fn get_installed_apps() -> Result<Vec<AppInfo>, String> {
                             let install_location =
                                 app_key.get_value::<String, _>("InstallLocation").ok();
                             let display_icon = app_key.get_value::<String, _>("DisplayIcon").ok();
-                            let uninstall_string =
-                                app_key.get_value::<String, _>("UninstallString").ok();
-                            let quiet_uninstall_string =
-                                app_key.get_value::<String, _>("QuietUninstallString").ok();
 
                             let normalized_install = install_location
                                 .as_deref()
                                 .map(normalize_windows_path)
                                 .filter(|p| !p.is_empty());
 
-                            let install_path =
-                                normalized_install.as_ref().map(|p| PathBuf::from(p));
-
-                            let uninstall_path = uninstall_string
-                                .as_ref()
-                                .and_then(|s| parse_command_path(s));
-                            let quiet_uninstall_path = quiet_uninstall_string
-                                .as_ref()
-                                .and_then(|s| parse_command_path(s));
-
-                            let mut extra_paths = Vec::new();
-                            if let Some(path) = uninstall_path.clone() {
-                                extra_paths.push(path);
-                            }
-                            if let Some(path) = quiet_uninstall_path.clone() {
-                                extra_paths.push(path);
-                            }
-
                             let resolved_icon = resolve_display_icon(
-                                &display_name,
                                 display_icon.as_deref(),
-                                install_path.as_deref(),
-                                &extra_paths,
+                                normalized_install.as_deref(),
                             );
 
                             let sanitized_display_icon = display_icon
@@ -469,30 +222,13 @@ async fn get_installed_apps() -> Result<Vec<AppInfo>, String> {
                                 .map(sanitized_registry_value)
                                 .filter(|p| !p.is_empty());
 
-                            let uninstall_hint = uninstall_path
-                                .as_ref()
-                                .filter(|p| p.exists())
-                                .map(|p| p.to_string_lossy().into_owned());
-                            let quiet_uninstall_hint = quiet_uninstall_path
-                                .as_ref()
-                                .filter(|p| p.exists())
-                                .map(|p| p.to_string_lossy().into_owned());
-
                             seen_names.insert(display_name.clone());
 
                             apps.push(AppInfo {
                                 name: display_name,
                                 path: resolved_icon.clone().or_else(|| normalized_install.clone()),
                                 icon_hint: resolved_icon
-                                    .or_else(|| {
-                                        sanitized_display_icon.clone().filter(|hint| {
-                                            hint.contains(':')
-                                                || hint.contains('/')
-                                                || hint.contains('\\')
-                                        })
-                                    })
-                                    .or(uninstall_hint)
-                                    .or(quiet_uninstall_hint)
+                                    .or(sanitized_display_icon)
                                     .or_else(|| normalized_install.clone()),
                             });
                         }
