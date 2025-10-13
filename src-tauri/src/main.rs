@@ -400,6 +400,12 @@ async fn get_app_icon(app_path: String) -> Result<String, String> {
         }
         Err(e) => Err(format!("Failed to extract icon: {}", e)),
     }
+
+    if let Some(web_icon) = fetch_icon_from_web(&app_path, &name_hints).await? {
+        return Ok(web_icon);
+    }
+
+    Err(format!("Unable to locate icon for {}", app_path))
 }
 
 #[cfg(target_os = "linux")]
