@@ -179,7 +179,11 @@ export class MemStorage implements IStorage {
 
   async addBlockRule(insertRule: InsertBlockRule): Promise<BlockRule> {
     const id = randomUUID();
-    const rule: BlockRule = { ...insertRule, id };
+    const rule: BlockRule = {
+      ...insertRule,
+      id,
+      iconHint: insertRule.iconHint ?? null
+    };
     this.blockRules.set(id, rule);
     return rule;
   }
