@@ -9,18 +9,21 @@ export default function RulesTableExample() {
       appId: 'discord.exe',
       matchKind: 'exe',
       mode: 'hard',
+      iconHint: null,
     },
     {
       id: '2',
       appId: 'chrome.exe',
       matchKind: 'exe',
       mode: 'soft',
+      iconHint: null,
     },
     {
       id: '3',
       appId: 'steam.exe',
       matchKind: 'exe',
       mode: 'hard',
+      iconHint: null,
     },
   ]);
 
