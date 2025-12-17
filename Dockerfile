@@ -1,4 +1,4 @@
-FROM rust:1.82-slim
+FROM rust:latest
 
 # Install Linux system dependencies for Tauri 2.0
 RUN apt-get update && apt-get install -y \
@@ -14,8 +14,8 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Tauri CLI
-RUN cargo install tauri-cli --version "^2.0"
+# Install Tauri CLI (use locked to avoid dependency resolution issues)
+RUN cargo install tauri-cli --locked
 
 # Working directory will be set by docker run command
 WORKDIR /app

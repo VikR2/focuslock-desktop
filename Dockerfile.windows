@@ -26,8 +26,8 @@ RUN cargo install xwin
 # Add Windows target
 RUN rustup target add x86_64-pc-windows-msvc
 
-# Install Tauri CLI
-RUN cargo install tauri-cli --version "^2.0"
+# Install Tauri CLI (use locked to avoid dependency resolution issues)
+RUN cargo install tauri-cli --locked
 
 # Working directory will be set by docker run command
 WORKDIR /app
