@@ -476,15 +476,25 @@ fn encode_icon_data(ico_data: &[u8]) -> Result<String, String> {
 
     match image::load_from_memory(ico_data) {
         Ok(img) => {
-            // Resize to 32x32 for consistency
-            let resized = img.resize_exact(32, 32, image::imageops::FilterType::Lanczos3);
+            let (width, height) = (img.width(), img.height());
 
-            // Encode to PNG
+            // Only resize if larger than target, use higher quality target size
+            let target_size = 48;
+            let final_img = if width > target_size || height > target_size {
+                // Use CatmullRom for better color preservation than Lanczos3
+                img.resize(target_size, target_size, image::imageops::FilterType::CatmullRom)
+            } else {
+                img
+            };
+
+            let (final_w, final_h) = (final_img.width(), final_img.height());
+
+            // Encode to PNG, preserving original colors
             let mut png_data = Vec::new();
             let encoder = image::codecs::png::PngEncoder::new(&mut png_data);
-            let rgba = resized.to_rgba8();
+            let rgba = final_img.to_rgba8();
             encoder
-                .write_image(&rgba, 32, 32, image::ExtendedColorType::Rgba8)
+                .write_image(&rgba, final_w, final_h, image::ExtendedColorType::Rgba8)
                 .map_err(|e| format!("Failed to encode PNG: {}", e))?;
 
             let base64_image = base64::Engine::encode(
@@ -580,6 +590,50 @@ fn find_start_menu_icon(app_name: &str) -> Option<PathBuf> {
     None
 }
 
+/// Check if two app names are a fuzzy match
+#[cfg(target_os = "windows")]
+fn fuzzy_app_match(file_name: &str, app_name: &str) -> bool {
+    // Direct substring match
+    if file_name.contains(app_name) {
+        return true;
+    }
+
+    // Try without common suffixes/prefixes
+    let clean_file = file_name
+        .replace(".lnk", "")
+        .replace(".ico", "")
+        .replace(".png", "")
+        .replace(" ", "")
+        .replace("-", "")
+        .replace("_", "");
+
+    let clean_app = app_name
+        .replace(" ", "")
+        .replace("-", "")
+        .replace("_", "");
+
+    if clean_file.contains(&clean_app) || clean_app.contains(&clean_file) {
+        return true;
+    }
+
+    // Check if words overlap significantly
+    let file_words: Vec<&str> = file_name.split(|c: char| !c.is_alphanumeric()).filter(|s| !s.is_empty()).collect();
+    let app_words: Vec<&str> = app_name.split(|c: char| !c.is_alphanumeric()).filter(|s| !s.is_empty()).collect();
+
+    // If any significant word matches
+    for fw in &file_words {
+        if fw.len() >= 4 {
+            for aw in &app_words {
+                if aw.len() >= 4 && (fw.contains(aw) || aw.contains(fw)) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
 /// Recursively search Start Menu for matching shortcuts
 #[cfg(target_os = "windows")]
 fn search_start_menu_for_app(dir: &Path, app_name: &str, depth: u32) -> Option<PathBuf> {
@@ -589,6 +643,7 @@ fn search_start_menu_for_app(dir: &Path, app_name: &str, depth: u32) -> Option<P
 
     let entries = fs::read_dir(dir).ok()?;
     let mut subdirs = Vec::new();
+    let mut potential_matches: Vec<PathBuf> = Vec::new();
 
     for entry in entries.flatten() {
         let path = entry.path();
@@ -598,8 +653,8 @@ fn search_start_menu_for_app(dir: &Path, app_name: &str, depth: u32) -> Option<P
                 .map(|n| n.to_string_lossy().to_lowercase())
                 .unwrap_or_default();
 
-            // Check if this shortcut matches our app name
-            if file_name.contains(app_name) {
+            // Check if this shortcut matches our app name (fuzzy match)
+            if fuzzy_app_match(&file_name, app_name) {
                 // Found a matching shortcut - look for associated icon files nearby
                 if let Some(parent) = path.parent() {
                     // Check for .ico files in the same directory
@@ -611,7 +666,7 @@ fn search_start_menu_for_app(dir: &Path, app_name: &str, depth: u32) -> Option<P
                                     .map(|n| n.to_string_lossy().to_lowercase())
                                     .unwrap_or_default();
 
-                                if sibling_name.contains(app_name) &&
+                                if fuzzy_app_match(&sibling_name, app_name) &&
                                    (sibling_name.ends_with(".ico") || sibling_name.ends_with(".png")) {
                                     return Some(sibling_path);
                                 }
@@ -620,14 +675,30 @@ fn search_start_menu_for_app(dir: &Path, app_name: &str, depth: u32) -> Option<P
                     }
                 }
 
-                // If it's an .lnk file, we can try to extract icon from it
+                // If it's an .lnk file, add to potential matches
                 if file_name.ends_with(".lnk") {
-                    return Some(path);
+                    potential_matches.push(path);
                 }
             }
         } else if path.is_dir() {
+            // Also check if directory name matches (e.g., "NinjaTrader 8" folder)
+            let dir_name = path.file_name()
+                .map(|n| n.to_string_lossy().to_lowercase())
+                .unwrap_or_default();
+
+            if fuzzy_app_match(&dir_name, app_name) {
+                // Prioritize searching this directory
+                if let Some(icon) = search_start_menu_for_app(&path, app_name, depth - 1) {
+                    return Some(icon);
+                }
+            }
             subdirs.push(path);
         }
+    }
+
+    // Return first potential match if we have one
+    if let Some(matched) = potential_matches.into_iter().next() {
+        return Some(matched);
     }
 
     // Recurse into subdirectories
@@ -679,12 +750,23 @@ fn load_image_file(path: &Path) -> Result<String, String> {
 
     match image::open(path) {
         Ok(img) => {
-            let resized = img.resize_exact(32, 32, image::imageops::FilterType::Lanczos3);
+            let (width, height) = (img.width(), img.height());
+
+            // Only resize if larger than target, preserve colors
+            let target_size = 48;
+            let final_img = if width > target_size || height > target_size {
+                img.resize(target_size, target_size, image::imageops::FilterType::CatmullRom)
+            } else {
+                img
+            };
+
+            let (final_w, final_h) = (final_img.width(), final_img.height());
+
             let mut png_data = Vec::new();
             let encoder = image::codecs::png::PngEncoder::new(&mut png_data);
-            let rgba = resized.to_rgba8();
+            let rgba = final_img.to_rgba8();
             encoder
-                .write_image(&rgba, 32, 32, image::ExtendedColorType::Rgba8)
+                .write_image(&rgba, final_w, final_h, image::ExtendedColorType::Rgba8)
                 .map_err(|e| format!("Failed to encode PNG: {}", e))?;
             let base64_image = base64::Engine::encode(
                 &base64::engine::general_purpose::STANDARD,
