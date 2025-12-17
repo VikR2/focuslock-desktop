@@ -8,3 +8,4 @@ vite.config.ts.*
 # Added by cargo
 
 /target
+src-tauri/target/

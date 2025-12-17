@@ -345,67 +345,293 @@ fn kill_process(_process_name: String) -> Result<String, String> {
     Err("This feature is only available on Windows".to_string())
 }
 
+/// Parse the DisplayIcon registry format and return the executable path
+/// DisplayIcon can be "C:\path\to\app.exe,0" or just "C:\path\to\app.exe"
+#[cfg(target_os = "windows")]
+fn parse_display_icon_path(display_icon: &str) -> String {
+    display_icon
+        .split(',')
+        .next()
+        .unwrap_or(display_icon)
+        .trim_matches('"')
+        .trim()
+        .to_string()
+}
+
+/// Try to find an executable in common Windows installation directories
+#[cfg(target_os = "windows")]
+fn search_common_install_dirs(app_name: &str) -> Option<PathBuf> {
+    let program_files = std::env::var("PROGRAMFILES").unwrap_or_else(|_| r"C:\Program Files".to_string());
+    let program_files_x86 = std::env::var("PROGRAMFILES(X86)").unwrap_or_else(|_| r"C:\Program Files (x86)".to_string());
+    let local_app_data = std::env::var("LOCALAPPDATA").unwrap_or_default();
+    let app_data = std::env::var("APPDATA").unwrap_or_default();
+
+    let search_roots = vec![
+        program_files,
+        program_files_x86,
+        local_app_data,
+        app_data,
+    ];
+
+    // Clean the app name for directory matching
+    let clean_name = app_name
+        .replace(".exe", "")
+        .replace(".lnk", "")
+        .to_lowercase();
+
+    for root in search_roots {
+        if root.is_empty() {
+            continue;
+        }
+
+        let root_path = PathBuf::from(&root);
+        if !root_path.exists() {
+            continue;
+        }
+
+        // Try direct subdirectory match
+        if let Ok(entries) = fs::read_dir(&root_path) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if !path.is_dir() {
+                    continue;
+                }
+
+                let dir_name = path.file_name()
+                    .map(|n| n.to_string_lossy().to_lowercase())
+                    .unwrap_or_default();
+
+                // Check if directory name contains our app name
+                if dir_name.contains(&clean_name) || clean_name.contains(&dir_name) {
+                    // Search for exe files in this directory
+                    if let Some(exe_path) = search_directory_for_exe(&path, 2) {
+                        return Some(exe_path);
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Recursively search a directory for executable files (limited depth)
+#[cfg(target_os = "windows")]
+fn search_directory_for_exe(dir: &Path, max_depth: u32) -> Option<PathBuf> {
+    if max_depth == 0 || !dir.is_dir() {
+        return None;
+    }
+
+    let entries = fs::read_dir(dir).ok()?;
+
+    // First pass: look for exe files directly
+    let mut subdirs = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+
+        if path.is_file() {
+            if let Some(ext) = path.extension() {
+                if ext.to_string_lossy().to_lowercase() == "exe" {
+                    // Skip uninstallers and updaters
+                    let file_name = path.file_name()
+                        .map(|n| n.to_string_lossy().to_lowercase())
+                        .unwrap_or_default();
+
+                    if !file_name.contains("unins")
+                        && !file_name.contains("update")
+                        && !file_name.contains("setup")
+                        && !file_name.contains("install") {
+                        return Some(path);
+                    }
+                }
+            }
+        } else if path.is_dir() {
+            subdirs.push(path);
+        }
+    }
+
+    // Second pass: recurse into subdirectories
+    for subdir in subdirs {
+        if let Some(exe) = search_directory_for_exe(&subdir, max_depth - 1) {
+            return Some(exe);
+        }
+    }
+
+    None
+}
+
+/// Load icon from an ICO file directly
+#[cfg(target_os = "windows")]
+fn load_ico_file(path: &Path) -> Result<String, String> {
+    let ico_data = fs::read(path)
+        .map_err(|e| format!("Failed to read ICO file: {}", e))?;
+
+    encode_icon_data(&ico_data)
+}
+
+/// Encode icon data (ICO format) to base64 PNG data URL
+#[cfg(target_os = "windows")]
+fn encode_icon_data(ico_data: &[u8]) -> Result<String, String> {
+    use image::ImageEncoder;
+
+    match image::load_from_memory(ico_data) {
+        Ok(img) => {
+            // Resize to 32x32 for consistency
+            let resized = img.resize_exact(32, 32, image::imageops::FilterType::Lanczos3);
+
+            // Encode to PNG
+            let mut png_data = Vec::new();
+            let encoder = image::codecs::png::PngEncoder::new(&mut png_data);
+            let rgba = resized.to_rgba8();
+            encoder
+                .write_image(&rgba, 32, 32, image::ExtendedColorType::Rgba8)
+                .map_err(|e| format!("Failed to encode PNG: {}", e))?;
+
+            let base64_image = base64::Engine::encode(
+                &base64::engine::general_purpose::STANDARD,
+                &png_data,
+            );
+            Ok(format!("data:image/png;base64,{}", base64_image))
+        }
+        Err(_) => {
+            // If ICO loading failed, just return the raw ICO data as base64
+            let base64_image = base64::Engine::encode(
+                &base64::engine::general_purpose::STANDARD,
+                ico_data,
+            );
+            Ok(format!("data:image/x-icon;base64,{}", base64_image))
+        }
+    }
+}
+
+/// Try to resolve an icon path using multiple strategies
+#[cfg(target_os = "windows")]
+fn try_resolve_icon_path(input: &str) -> Option<PathBuf> {
+    let parsed = parse_display_icon_path(input);
+    let expanded = expand_env_vars(&parsed);
+    let path = PathBuf::from(&expanded);
+
+    // Strategy 1: Direct path exists
+    if path.exists() && path.is_file() {
+        return Some(path);
+    }
+
+    // Strategy 2: Try adding common extensions
+    if path.extension().is_none() {
+        for ext in &["exe", "ico", "lnk"] {
+            let with_ext = path.with_extension(ext);
+            if with_ext.exists() && with_ext.is_file() {
+                return Some(with_ext);
+            }
+        }
+    }
+
+    // Strategy 3: Check if it's in the same directory with different extension
+    if let Some(parent) = path.parent() {
+        if let Some(stem) = path.file_stem() {
+            for ext in &["exe", "ico"] {
+                let alt_path = parent.join(stem).with_extension(ext);
+                if alt_path.exists() && alt_path.is_file() {
+                    return Some(alt_path);
+                }
+            }
+        }
+    }
+
+    // Strategy 4: Search in the parent directory for any matching exe
+    if let Some(parent) = path.parent() {
+        if parent.exists() && parent.is_dir() {
+            if let Some(exe) = search_directory_for_exe(parent, 1) {
+                return Some(exe);
+            }
+        }
+    }
+
+    None
+}
+
 // Extract icon from application path and return as base64 PNG
 #[cfg(target_os = "windows")]
 #[tauri::command]
 async fn get_app_icon(app_path: String) -> Result<String, String> {
     use exeico::get_exe_ico;
-    use image::ImageEncoder;
-    use std::path::Path;
 
-    // Extract the actual exe path from DisplayIcon format
-    // DisplayIcon can be "C:\path\to\app.exe,0" or just "C:\path\to\app.exe"
-    let exe_path = app_path
-        .split(',')
-        .next()
-        .unwrap_or(&app_path)
-        .trim_matches('"');
+    // Try to resolve the icon path using multiple strategies
+    let resolved_path = try_resolve_icon_path(&app_path);
 
-    if !Path::new(exe_path).exists() {
-        return Err(format!("File not found: {}", exe_path));
-    }
+    // If we have a resolved path, try to extract icon based on file type
+    if let Some(path) = resolved_path {
+        let ext = path.extension()
+            .map(|e| e.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
 
-    // Try to extract the real icon from the exe
-    match get_exe_ico(exe_path) {
-        Ok(ico_data) => {
-            // Convert ICO to PNG
-            match image::load_from_memory(&ico_data) {
-                Ok(img) => {
-                    // Resize to 32x32 for consistency
-                    let resized = img.resize_exact(32, 32, image::imageops::FilterType::Lanczos3);
-
-                    // Encode to PNG
-                    let mut png_data = Vec::new();
-                    let encoder = image::codecs::png::PngEncoder::new(&mut png_data);
-                    let rgba = resized.to_rgba8();
-                    encoder
-                        .write_image(&rgba, 32, 32, image::ExtendedColorType::Rgba8)
-                        .map_err(|e| format!("Failed to encode PNG: {}", e))?;
-
-                    let base64_image = base64::Engine::encode(
-                        &base64::engine::general_purpose::STANDARD,
-                        &png_data,
-                    );
-                    Ok(format!("data:image/png;base64,{}", base64_image))
+        match ext.as_str() {
+            "ico" => {
+                // Load ICO file directly
+                return load_ico_file(&path);
+            }
+            "exe" | "dll" => {
+                // Extract icon from executable
+                let path_str = path.to_string_lossy().to_string();
+                match get_exe_ico(&path_str) {
+                    Ok(ico_data) => {
+                        return encode_icon_data(&ico_data);
+                    }
+                    Err(e) => {
+                        // Log but continue to fallback
+                        eprintln!("Failed to extract icon from {}: {}", path_str, e);
+                    }
                 }
-                Err(_) => {
-                    // If ICO loading failed, just return the raw ICO data as base64
-                    let base64_image = base64::Engine::encode(
-                        &base64::engine::general_purpose::STANDARD,
-                        &ico_data,
-                    );
-                    Ok(format!("data:image/x-icon;base64,{}", base64_image))
+            }
+            "png" | "jpg" | "jpeg" | "bmp" => {
+                // Load image directly
+                use image::ImageEncoder;
+                match image::open(&path) {
+                    Ok(img) => {
+                        let resized = img.resize_exact(32, 32, image::imageops::FilterType::Lanczos3);
+                        let mut png_data = Vec::new();
+                        let encoder = image::codecs::png::PngEncoder::new(&mut png_data);
+                        let rgba = resized.to_rgba8();
+                        encoder
+                            .write_image(&rgba, 32, 32, image::ExtendedColorType::Rgba8)
+                            .map_err(|e| format!("Failed to encode PNG: {}", e))?;
+                        let base64_image = base64::Engine::encode(
+                            &base64::engine::general_purpose::STANDARD,
+                            &png_data,
+                        );
+                        return Ok(format!("data:image/png;base64,{}", base64_image));
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to load image {}: {}", path.display(), e);
+                    }
+                }
+            }
+            _ => {
+                // Try as executable anyway
+                let path_str = path.to_string_lossy().to_string();
+                if let Ok(ico_data) = get_exe_ico(&path_str) {
+                    return encode_icon_data(&ico_data);
                 }
             }
         }
-        Err(e) => Err(format!("Failed to extract icon: {}", e)),
     }
 
-    if let Some(web_icon) = fetch_icon_from_web(&app_path, &name_hints).await? {
-        return Ok(web_icon);
+    // Fallback: Try searching common install directories
+    // Extract a reasonable app name from the path
+    let app_name = app_path
+        .split(&['\\', '/'][..])
+        .filter(|s| !s.is_empty())
+        .last()
+        .unwrap_or(&app_path);
+
+    if let Some(found_path) = search_common_install_dirs(app_name) {
+        let path_str = found_path.to_string_lossy().to_string();
+        if let Ok(ico_data) = get_exe_ico(&path_str) {
+            return encode_icon_data(&ico_data);
+        }
     }
 
-    Err(format!("Unable to locate icon for {}", app_path))
+    Err(format!("Unable to locate icon for: {}", app_path))
 }
 
 #[cfg(target_os = "linux")]
