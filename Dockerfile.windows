@@ -16,15 +16,29 @@ RUN apt-get update && apt-get install -y \
     clang \
     lld \
     llvm \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Update Rust to latest stable and install cargo-xwin + xwin CLI
+# Update Rust to latest stable
 RUN rustup update stable && rustup default stable
-RUN cargo install cargo-xwin
-RUN cargo install xwin
 
 # Add Windows target
 RUN rustup target add x86_64-pc-windows-msvc
+
+# Install cargo-xwin and xwin CLI
+RUN cargo install cargo-xwin xwin
+
+# Pre-download and cache the Windows SDK/CRT (with retries)
+# This avoids download failures during build time
+ENV XWIN_CACHE_DIR=/root/.xwin-cache
+RUN mkdir -p $XWIN_CACHE_DIR && \
+    for i in 1 2 3 4 5; do \
+        xwin --accept-license splat --output /root/.xwin-cache && break || \
+        echo "Attempt $i failed, retrying in 10s..." && sleep 10; \
+    done
+
+# Set environment for cargo-xwin to use cached SDK
+ENV XWIN_ARCH=x86_64
 
 # Install Tauri CLI (use locked to avoid dependency resolution issues)
 RUN cargo install tauri-cli --locked
