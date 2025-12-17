@@ -504,90 +504,172 @@ fn encode_icon_data(ico_data: &[u8]) -> Result<String, String> {
     }
 }
 
-/// Try to find icon for UWP/Windows Store apps
-/// These apps store icons in Assets folder as PNG files
+/// Check if a path is a WindowsApps (UWP/Store app) path
+/// These paths have restrictive permissions and can't be read directly
 #[cfg(target_os = "windows")]
-fn find_uwp_app_icon(app_path: &str) -> Option<PathBuf> {
-    // Check if this is a WindowsApps path
-    if !app_path.to_lowercase().contains("windowsapps") {
-        return None;
-    }
+fn is_windows_store_app(app_path: &str) -> bool {
+    app_path.to_lowercase().contains("windowsapps")
+}
 
+/// Extract the app name from a UWP app path
+/// e.g., "C:\...\TradingView.Desktop_2.13.0.7353_x64__n534cwy3pjxzj\TradingView.exe" -> "tradingview"
+#[cfg(target_os = "windows")]
+fn extract_uwp_app_name(app_path: &str) -> Option<String> {
     let path = PathBuf::from(app_path);
-    let parent = path.parent()?;
 
-    // UWP apps typically have Assets folder with logo images
-    let assets_dir = parent.join("Assets");
-    if assets_dir.exists() && assets_dir.is_dir() {
-        // Look for common icon names in priority order
-        let icon_patterns = [
-            "Square44x44Logo.scale-200.png",
-            "Square44x44Logo.scale-100.png",
-            "Square44x44Logo.png",
-            "Square150x150Logo.scale-200.png",
-            "Square150x150Logo.scale-100.png",
-            "Square150x150Logo.png",
-            "StoreLogo.scale-200.png",
-            "StoreLogo.scale-100.png",
-            "StoreLogo.png",
-            "Logo.scale-200.png",
-            "Logo.scale-100.png",
-            "Logo.png",
-        ];
-
-        for pattern in &icon_patterns {
-            let icon_path = assets_dir.join(pattern);
-            if icon_path.exists() {
-                return Some(icon_path);
-            }
-        }
-
-        // If no exact match, search for any PNG with "logo" in the name
-        if let Ok(entries) = fs::read_dir(&assets_dir) {
-            for entry in entries.flatten() {
-                let entry_path = entry.path();
-                if entry_path.is_file() {
-                    let file_name = entry_path.file_name()
-                        .map(|n| n.to_string_lossy().to_lowercase())
-                        .unwrap_or_default();
-
-                    if file_name.ends_with(".png") && file_name.contains("logo") {
-                        return Some(entry_path);
-                    }
-                }
-            }
-
-            // Last resort: any PNG file in Assets
-            if let Ok(entries) = fs::read_dir(&assets_dir) {
-                for entry in entries.flatten() {
-                    let entry_path = entry.path();
-                    if entry_path.is_file() {
-                        if let Some(ext) = entry_path.extension() {
-                            if ext.to_string_lossy().to_lowercase() == "png" {
-                                return Some(entry_path);
-                            }
-                        }
-                    }
-                }
-            }
+    // Try to get app name from the exe filename first
+    if let Some(file_stem) = path.file_stem() {
+        let name = file_stem.to_string_lossy().to_lowercase();
+        if !name.is_empty() && name != "app" {
+            return Some(name);
         }
     }
 
-    // Also check for .ico files in the app directory
-    if let Ok(entries) = fs::read_dir(parent) {
-        for entry in entries.flatten() {
-            let entry_path = entry.path();
-            if entry_path.is_file() {
-                if let Some(ext) = entry_path.extension() {
-                    if ext.to_string_lossy().to_lowercase() == "ico" {
-                        return Some(entry_path);
-                    }
+    // Try to extract from the parent folder name (e.g., "TradingView.Desktop_2.13...")
+    if let Some(parent) = path.parent() {
+        if let Some(folder_name) = parent.file_name() {
+            let folder = folder_name.to_string_lossy();
+            // Extract the part before the underscore or version number
+            if let Some(name_part) = folder.split('_').next() {
+                // Remove ".Desktop" or similar suffixes
+                let clean_name = name_part
+                    .split('.')
+                    .next()
+                    .unwrap_or(name_part)
+                    .to_lowercase();
+                if !clean_name.is_empty() {
+                    return Some(clean_name);
                 }
             }
         }
     }
 
     None
+}
+
+/// Search Start Menu for shortcuts matching app name and extract icon
+#[cfg(target_os = "windows")]
+fn find_start_menu_icon(app_name: &str) -> Option<PathBuf> {
+    let app_name_lower = app_name.to_lowercase();
+
+    // Start Menu locations to search
+    let start_menu_paths = vec![
+        std::env::var("APPDATA")
+            .map(|p| PathBuf::from(p).join("Microsoft").join("Windows").join("Start Menu").join("Programs"))
+            .ok(),
+        std::env::var("PROGRAMDATA")
+            .map(|p| PathBuf::from(p).join("Microsoft").join("Windows").join("Start Menu").join("Programs"))
+            .ok(),
+        // Also check Desktop for shortcuts
+        std::env::var("USERPROFILE")
+            .map(|p| PathBuf::from(p).join("Desktop"))
+            .ok(),
+    ];
+
+    for start_menu in start_menu_paths.into_iter().flatten() {
+        if !start_menu.exists() {
+            continue;
+        }
+
+        // Search recursively (limited depth)
+        if let Some(icon) = search_start_menu_for_app(&start_menu, &app_name_lower, 3) {
+            return Some(icon);
+        }
+    }
+
+    None
+}
+
+/// Recursively search Start Menu for matching shortcuts
+#[cfg(target_os = "windows")]
+fn search_start_menu_for_app(dir: &Path, app_name: &str, depth: u32) -> Option<PathBuf> {
+    if depth == 0 || !dir.is_dir() {
+        return None;
+    }
+
+    let entries = fs::read_dir(dir).ok()?;
+    let mut subdirs = Vec::new();
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+
+        if path.is_file() {
+            let file_name = path.file_name()
+                .map(|n| n.to_string_lossy().to_lowercase())
+                .unwrap_or_default();
+
+            // Check if this shortcut matches our app name
+            if file_name.contains(app_name) {
+                // Found a matching shortcut - look for associated icon files nearby
+                if let Some(parent) = path.parent() {
+                    // Check for .ico files in the same directory
+                    if let Ok(siblings) = fs::read_dir(parent) {
+                        for sibling in siblings.flatten() {
+                            let sibling_path = sibling.path();
+                            if sibling_path.is_file() {
+                                let sibling_name = sibling_path.file_name()
+                                    .map(|n| n.to_string_lossy().to_lowercase())
+                                    .unwrap_or_default();
+
+                                if sibling_name.contains(app_name) &&
+                                   (sibling_name.ends_with(".ico") || sibling_name.ends_with(".png")) {
+                                    return Some(sibling_path);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // If it's an .lnk file, we can try to extract icon from it
+                if file_name.ends_with(".lnk") {
+                    return Some(path);
+                }
+            }
+        } else if path.is_dir() {
+            subdirs.push(path);
+        }
+    }
+
+    // Recurse into subdirectories
+    for subdir in subdirs {
+        if let Some(icon) = search_start_menu_for_app(&subdir, app_name, depth - 1) {
+            return Some(icon);
+        }
+    }
+
+    None
+}
+
+/// Try to extract icon from a .lnk shortcut file
+#[cfg(target_os = "windows")]
+fn extract_icon_from_lnk(lnk_path: &Path) -> Result<String, String> {
+    use exeico::get_exe_ico;
+
+    // Read the .lnk file to find the target
+    // .lnk files have a complex binary format, but we can try to extract the target path
+    let lnk_data = fs::read(lnk_path)
+        .map_err(|e| format!("Failed to read shortcut: {}", e))?;
+
+    // Simple heuristic: look for .exe path in the file
+    // This is a simplified approach - proper parsing would require a dedicated library
+    let content = String::from_utf8_lossy(&lnk_data);
+
+    // Look for paths ending in .exe
+    for segment in content.split('\0') {
+        let trimmed = segment.trim();
+        if trimmed.len() > 4 &&
+           trimmed.to_lowercase().ends_with(".exe") &&
+           !trimmed.to_lowercase().contains("windowsapps") {
+            // Found a potential exe path, try to extract icon from it
+            if Path::new(trimmed).exists() {
+                if let Ok(ico_data) = get_exe_ico(trimmed) {
+                    return encode_icon_data(&ico_data);
+                }
+            }
+        }
+    }
+
+    Err("Could not extract icon from shortcut".to_string())
 }
 
 /// Load a PNG/image file and return as base64 data URL
@@ -666,21 +748,38 @@ fn try_resolve_icon_path(input: &str) -> Option<PathBuf> {
 async fn get_app_icon(app_path: String) -> Result<String, String> {
     use exeico::get_exe_ico;
 
-    // Strategy 0: Check for UWP/Windows Store apps first (they need special handling)
-    if let Some(uwp_icon) = find_uwp_app_icon(&app_path) {
-        let ext = uwp_icon.extension()
-            .map(|e| e.to_string_lossy().to_lowercase())
-            .unwrap_or_default();
+    // Strategy 0: Check for UWP/Windows Store apps first
+    // These apps are in WindowsApps folder which has restrictive permissions
+    // We cannot read from it directly, so we search Start Menu for shortcuts instead
+    if is_windows_store_app(&app_path) {
+        // Extract app name from the UWP path
+        if let Some(app_name) = extract_uwp_app_name(&app_path) {
+            // Search Start Menu for a matching shortcut
+            if let Some(shortcut_path) = find_start_menu_icon(&app_name) {
+                let ext = shortcut_path.extension()
+                    .map(|e| e.to_string_lossy().to_lowercase())
+                    .unwrap_or_default();
 
-        match ext.as_str() {
-            "png" | "jpg" | "jpeg" | "bmp" => {
-                return load_image_file(&uwp_icon);
+                match ext.as_str() {
+                    "ico" => {
+                        return load_ico_file(&shortcut_path);
+                    }
+                    "png" | "jpg" | "jpeg" | "bmp" => {
+                        return load_image_file(&shortcut_path);
+                    }
+                    "lnk" => {
+                        // Try to extract icon from the shortcut's target
+                        if let Ok(icon) = extract_icon_from_lnk(&shortcut_path) {
+                            return Ok(icon);
+                        }
+                    }
+                    _ => {}
+                }
             }
-            "ico" => {
-                return load_ico_file(&uwp_icon);
-            }
-            _ => {}
         }
+
+        // For UWP apps, return a specific error so frontend can use fallback
+        return Err(format!("UWP_APP:{}", app_path));
     }
 
     // Try to resolve the icon path using multiple strategies
@@ -736,6 +835,29 @@ async fn get_app_icon(app_path: String) -> Result<String, String> {
         let path_str = found_path.to_string_lossy().to_string();
         if let Ok(ico_data) = get_exe_ico(&path_str) {
             return encode_icon_data(&ico_data);
+        }
+    }
+
+    // Last fallback: search Start Menu for any app
+    let clean_app_name = app_name.replace(".exe", "").to_lowercase();
+    if let Some(shortcut_path) = find_start_menu_icon(&clean_app_name) {
+        let ext = shortcut_path.extension()
+            .map(|e| e.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
+
+        match ext.as_str() {
+            "ico" => {
+                return load_ico_file(&shortcut_path);
+            }
+            "png" | "jpg" | "jpeg" | "bmp" => {
+                return load_image_file(&shortcut_path);
+            }
+            "lnk" => {
+                if let Ok(icon) = extract_icon_from_lnk(&shortcut_path) {
+                    return Ok(icon);
+                }
+            }
+            _ => {}
         }
     }
 
