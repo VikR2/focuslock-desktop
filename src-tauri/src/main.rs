@@ -504,6 +504,116 @@ fn encode_icon_data(ico_data: &[u8]) -> Result<String, String> {
     }
 }
 
+/// Try to find icon for UWP/Windows Store apps
+/// These apps store icons in Assets folder as PNG files
+#[cfg(target_os = "windows")]
+fn find_uwp_app_icon(app_path: &str) -> Option<PathBuf> {
+    // Check if this is a WindowsApps path
+    if !app_path.to_lowercase().contains("windowsapps") {
+        return None;
+    }
+
+    let path = PathBuf::from(app_path);
+    let parent = path.parent()?;
+
+    // UWP apps typically have Assets folder with logo images
+    let assets_dir = parent.join("Assets");
+    if assets_dir.exists() && assets_dir.is_dir() {
+        // Look for common icon names in priority order
+        let icon_patterns = [
+            "Square44x44Logo.scale-200.png",
+            "Square44x44Logo.scale-100.png",
+            "Square44x44Logo.png",
+            "Square150x150Logo.scale-200.png",
+            "Square150x150Logo.scale-100.png",
+            "Square150x150Logo.png",
+            "StoreLogo.scale-200.png",
+            "StoreLogo.scale-100.png",
+            "StoreLogo.png",
+            "Logo.scale-200.png",
+            "Logo.scale-100.png",
+            "Logo.png",
+        ];
+
+        for pattern in &icon_patterns {
+            let icon_path = assets_dir.join(pattern);
+            if icon_path.exists() {
+                return Some(icon_path);
+            }
+        }
+
+        // If no exact match, search for any PNG with "logo" in the name
+        if let Ok(entries) = fs::read_dir(&assets_dir) {
+            for entry in entries.flatten() {
+                let entry_path = entry.path();
+                if entry_path.is_file() {
+                    let file_name = entry_path.file_name()
+                        .map(|n| n.to_string_lossy().to_lowercase())
+                        .unwrap_or_default();
+
+                    if file_name.ends_with(".png") && file_name.contains("logo") {
+                        return Some(entry_path);
+                    }
+                }
+            }
+
+            // Last resort: any PNG file in Assets
+            if let Ok(entries) = fs::read_dir(&assets_dir) {
+                for entry in entries.flatten() {
+                    let entry_path = entry.path();
+                    if entry_path.is_file() {
+                        if let Some(ext) = entry_path.extension() {
+                            if ext.to_string_lossy().to_lowercase() == "png" {
+                                return Some(entry_path);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Also check for .ico files in the app directory
+    if let Ok(entries) = fs::read_dir(parent) {
+        for entry in entries.flatten() {
+            let entry_path = entry.path();
+            if entry_path.is_file() {
+                if let Some(ext) = entry_path.extension() {
+                    if ext.to_string_lossy().to_lowercase() == "ico" {
+                        return Some(entry_path);
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Load a PNG/image file and return as base64 data URL
+#[cfg(target_os = "windows")]
+fn load_image_file(path: &Path) -> Result<String, String> {
+    use image::ImageEncoder;
+
+    match image::open(path) {
+        Ok(img) => {
+            let resized = img.resize_exact(32, 32, image::imageops::FilterType::Lanczos3);
+            let mut png_data = Vec::new();
+            let encoder = image::codecs::png::PngEncoder::new(&mut png_data);
+            let rgba = resized.to_rgba8();
+            encoder
+                .write_image(&rgba, 32, 32, image::ExtendedColorType::Rgba8)
+                .map_err(|e| format!("Failed to encode PNG: {}", e))?;
+            let base64_image = base64::Engine::encode(
+                &base64::engine::general_purpose::STANDARD,
+                &png_data,
+            );
+            Ok(format!("data:image/png;base64,{}", base64_image))
+        }
+        Err(e) => Err(format!("Failed to load image: {}", e))
+    }
+}
+
 /// Try to resolve an icon path using multiple strategies
 #[cfg(target_os = "windows")]
 fn try_resolve_icon_path(input: &str) -> Option<PathBuf> {
@@ -556,6 +666,23 @@ fn try_resolve_icon_path(input: &str) -> Option<PathBuf> {
 async fn get_app_icon(app_path: String) -> Result<String, String> {
     use exeico::get_exe_ico;
 
+    // Strategy 0: Check for UWP/Windows Store apps first (they need special handling)
+    if let Some(uwp_icon) = find_uwp_app_icon(&app_path) {
+        let ext = uwp_icon.extension()
+            .map(|e| e.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
+
+        match ext.as_str() {
+            "png" | "jpg" | "jpeg" | "bmp" => {
+                return load_image_file(&uwp_icon);
+            }
+            "ico" => {
+                return load_ico_file(&uwp_icon);
+            }
+            _ => {}
+        }
+    }
+
     // Try to resolve the icon path using multiple strategies
     let resolved_path = try_resolve_icon_path(&app_path);
 
@@ -585,26 +712,7 @@ async fn get_app_icon(app_path: String) -> Result<String, String> {
             }
             "png" | "jpg" | "jpeg" | "bmp" => {
                 // Load image directly
-                use image::ImageEncoder;
-                match image::open(&path) {
-                    Ok(img) => {
-                        let resized = img.resize_exact(32, 32, image::imageops::FilterType::Lanczos3);
-                        let mut png_data = Vec::new();
-                        let encoder = image::codecs::png::PngEncoder::new(&mut png_data);
-                        let rgba = resized.to_rgba8();
-                        encoder
-                            .write_image(&rgba, 32, 32, image::ExtendedColorType::Rgba8)
-                            .map_err(|e| format!("Failed to encode PNG: {}", e))?;
-                        let base64_image = base64::Engine::encode(
-                            &base64::engine::general_purpose::STANDARD,
-                            &png_data,
-                        );
-                        return Ok(format!("data:image/png;base64,{}", base64_image));
-                    }
-                    Err(e) => {
-                        eprintln!("Failed to load image {}: {}", path.display(), e);
-                    }
-                }
+                return load_image_file(&path);
             }
             _ => {
                 // Try as executable anyway
