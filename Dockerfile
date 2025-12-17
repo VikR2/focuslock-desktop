@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Tauri CLI
-RUN cargo install tauri-cli --version ^2.0
+RUN cargo install tauri-cli --version "^2.0"
 
 # Working directory will be set by docker run command
 WORKDIR /app
