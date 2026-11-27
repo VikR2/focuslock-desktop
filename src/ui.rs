@@ -156,11 +156,11 @@ impl FocusLock {
         // Closing the window mid-session would stop blocking, so it minimizes instead.
         let weak = cx.entity().downgrade();
         window.on_window_should_close(cx, move |window, cx| {
-            let enforcing = weak.read_with(cx, |this, _| this.enforcing()).unwrap_or(false);
-            if enforcing {
+            let in_session = weak.read_with(cx, |this, _| this.state.session.is_some()).unwrap_or(false);
+            if in_session {
                 window.minimize_window();
             }
-            !enforcing
+            !in_session
         });
 
         let tick = cx.spawn_in(window, async move |this, cx| {
@@ -257,16 +257,24 @@ impl FocusLock {
 
     fn tick(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let now = now_secs();
-        let mut texts = Vec::new();
+        let mut texts: Vec<String> = Vec::new();
+        let mut warned = false;
         while let Ok(event) = self.events.try_recv() {
-            texts.push(match event {
+            let text = match event {
                 Event::Closed { name } => format!("Closed {name}"),
                 Event::CouldNotClose { name } => format!("Windows didn't let FocusLock close {name}"),
                 Event::Warned { name } => {
-                    window.activate_window();
+                    warned = true;
                     format!("{name} is open. You set it to warn during focus")
                 }
-            });
+            };
+            // A browser closes as many processes; name it once.
+            if !texts.contains(&text) {
+                texts.push(text);
+            }
+        }
+        if warned {
+            window.activate_window();
         }
         // Several apps can trip in the same tick; show them all.
         if !texts.is_empty() {
@@ -479,7 +487,6 @@ impl FocusLock {
     fn unlock_strip(&self, key: &str, name: &str, p: Pal, cx: &mut Context<Self>) -> Div {
         let started = self.unlock.as_ref().map(|u| u.1).unwrap_or(0);
         let left = self.state.settings.unlock_wait_secs.saturating_sub(now_secs().saturating_sub(started));
-        let until = self.state.session.as_ref().map(|s| local_hm(s.ends_at)).unwrap_or_default();
         let minutes = self.state.settings.unlock_minutes;
         let k = key.to_string();
         h_flex()
@@ -493,7 +500,7 @@ impl FocusLock {
                     .min_w_0()
                     .text_size(px(13.))
                     .text_color(p.text)
-                    .child(format!("{name} is locked until {until}.")),
+                    .child(format!("{name} stays locked until this session ends.")),
             )
             .child(self.btn(format!("keep-{key}"), "Keep locked", false).on_click(cx.listener(|this, _, _, cx| {
                 this.unlock = None;
