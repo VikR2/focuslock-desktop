@@ -17,6 +17,12 @@ pub struct Session {
     pub paused_left: Option<u64>,
     #[serde(default)]
     pub reason: String,
+    /// Focus group id: only that group's apps may stay open.
+    #[serde(default)]
+    pub group: Option<String>,
+    /// Apps outside the group unlocked for a while: (app key, until).
+    #[serde(default)]
+    pub allowed: Vec<(String, u64)>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -34,7 +40,13 @@ impl Session {
             ends_at: now + length_secs,
             paused_left: None,
             reason: reason.into(),
+            group: None,
+            allowed: Vec::new(),
         }
+    }
+
+    pub fn is_allowed(&self, key: &str, now: u64) -> bool {
+        self.allowed.iter().any(|(k, until)| k == key && now < *until)
     }
 
     pub fn phase(&self, now: u64) -> Phase {
