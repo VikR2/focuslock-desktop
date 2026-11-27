@@ -22,6 +22,10 @@ pub fn score(query: &str, name: &str, key: &str) -> Option<u32> {
     if name_n.starts_with(&q) {
         take(900);
     }
+    // The full file name, as search results show it: "chrome.exe".
+    if normalize(key).starts_with(&q) {
+        take(850);
+    }
     if stem.starts_with(&compact_q) {
         take(850);
     }
@@ -154,6 +158,13 @@ mod tests {
         assert!(score("sp", "Citrix Workspace", "selfservice.exe").is_none());
         assert!(score("ws", "Citrix Workspace", "selfservice.exe").is_none());
         assert!(score("cw", "Citrix Workspace", "selfservice.exe").is_some());
+    }
+
+    #[test]
+    fn exe_file_names_match_as_shown() {
+        // Results show `chrome.exe` under the name, so typing it must find the app.
+        assert!(score("chrome.exe", "Google Chrome", "chrome.exe").unwrap() >= 850);
+        assert!(score("chrome.e", "Google Chrome", "chrome.exe").is_some());
     }
 
     #[test]

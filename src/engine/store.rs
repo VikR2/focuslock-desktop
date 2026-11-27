@@ -34,7 +34,6 @@ impl Rule {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
-    pub default_mode: Mode,
     pub session_minutes: u64,
     /// Seconds to wait before an app can be allowed during a session.
     pub unlock_wait_secs: u64,
@@ -44,7 +43,7 @@ pub struct Settings {
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { default_mode: Mode::Lock, session_minutes: 25, unlock_wait_secs: 30, unlock_minutes: 10 }
+        Self { session_minutes: 25, unlock_wait_secs: 30, unlock_minutes: 10 }
     }
 }
 

@@ -257,16 +257,20 @@ impl FocusLock {
 
     fn tick(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let now = now_secs();
+        let mut texts = Vec::new();
         while let Ok(event) = self.events.try_recv() {
-            let text = match event {
+            texts.push(match event {
                 Event::Closed { name } => format!("Closed {name}"),
                 Event::CouldNotClose { name } => format!("Windows didn't let FocusLock close {name}"),
                 Event::Warned { name } => {
                     window.activate_window();
                     format!("{name} is open. You set it to warn during focus")
                 }
-            };
-            self.notice = Some((text, now));
+            });
+        }
+        // Several apps can trip in the same tick; show them all.
+        if !texts.is_empty() {
+            self.notice = Some((texts.join(". "), now));
         }
         if self.notice.as_ref().is_some_and(|(_, at)| now >= at + NOTICE_SECS) {
             self.notice = None;
@@ -365,10 +369,15 @@ impl FocusLock {
     /// through the unlock wait instead.
     fn set_mode(&mut self, key: &str, name: &str, mode: Option<Mode>) {
         let index = self.state.rules.iter().position(|r| r.key == key);
-        let locked_now = index.is_some_and(|i| self.state.rules[i].mode == Mode::Lock && !self.state.rules[i].is_allowed(now_secs()));
-        if self.enforcing() && locked_now && mode != Some(Mode::Lock) {
-            self.unlock = Some((key.to_string(), now_secs()));
-            return;
+        // During a session (running or paused) a locked app only ever gets the
+        // timed unlock, so Lock is back after it expires and after a resume.
+        if let Some(i) = index.filter(|&i| self.state.rules[i].mode == Mode::Lock) {
+            if self.state.session.is_some() && mode != Some(Mode::Lock) {
+                if !self.state.rules[i].is_allowed(now_secs()) {
+                    self.unlock = Some((key.to_string(), now_secs()));
+                }
+                return;
+            }
         }
         match (mode, index) {
             (Some(m), Some(i)) => self.state.rules[i].mode = m,
