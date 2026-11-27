@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- 16-24 px variant: case, plain dial, four markers, bold lock. -->
+  <circle cx="128" cy="128" r="126" fill="#9aa2ad"/>
+  <circle cx="128" cy="128" r="112" fill="#1d2128"/>
+  <line x1="128.0" y1="28.0" x2="128.0" y2="50.0" stroke="#dfe3e8" stroke-width="14" stroke-linecap="round"/>
+  <line x1="228.0" y1="128.0" x2="206.0" y2="128.0" stroke="#dfe3e8" stroke-width="14" stroke-linecap="round"/>
+  <line x1="128.0" y1="228.0" x2="128.0" y2="206.0" stroke="#dfe3e8" stroke-width="14" stroke-linecap="round"/>
+  <line x1="28.0" y1="128.0" x2="50.0" y2="128.0" stroke="#dfe3e8" stroke-width="14" stroke-linecap="round"/>
+  <path d="M98 132 V108 a30 30 0 0 1 60 0 V132" fill="none" stroke="#e6e9ee" stroke-width="20" stroke-linecap="round"/>
+  <circle cx="128" cy="152" r="44" fill="#3B8CFF"/>
+  <circle cx="128" cy="152" r="11" fill="#16181C"/>
+</svg>

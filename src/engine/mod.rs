@@ -55,6 +55,12 @@ pub fn process_matches(rule_key: &str, proc_exe_key: &str, proc_path: Option<&st
     }
 }
 
+/// Files under the Windows folder: shell and system UI, never closed by a vault.
+pub fn is_windows_path(path: &str) -> bool {
+    let windir = std::env::var("WINDIR").unwrap_or_else(|_| r"C:\Windows".into()).to_ascii_lowercase();
+    path.to_ascii_lowercase().starts_with(&(windir + "\\"))
+}
+
 /// Processes FocusLock must never terminate, whatever the rules say.
 pub fn is_protected_exe(key: &str) -> bool {
     const PROTECTED: &[&str] = &[

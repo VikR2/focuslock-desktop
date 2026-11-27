@@ -1,10 +1,11 @@
 //! The app catalog: every launchable or running app, one entry per executable.
 
 use super::{app_key, exe_key, is_protected_exe};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Where to ask the Windows shell for an app's icon.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum IconSource {
     /// A file the shell can render: a shortcut (.lnk) or an executable.
     Path(String),
@@ -30,7 +31,7 @@ pub struct Sighting {
     pub origin: Origin,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AppEntry {
     /// `discord.exe`, or `pkg:<family>` for Store apps. Rules match on this.
     pub key: String,

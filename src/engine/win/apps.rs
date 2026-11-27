@@ -272,8 +272,7 @@ fn is_real_exe(path: &str) -> bool {
 }
 
 fn in_windows_dir(path: &str) -> bool {
-    let windir = std::env::var("WINDIR").unwrap_or_else(|_| r"C:\Windows".into()).to_ascii_lowercase();
-    path.to_ascii_lowercase().starts_with(&(windir + "\\"))
+    crate::engine::is_windows_path(path)
 }
 
 fn stem(path: &str) -> String {

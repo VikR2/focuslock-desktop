@@ -2,6 +2,7 @@
 
 pub mod apps;
 pub mod icons;
+pub mod notify;
 pub mod procs;
 
 use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};

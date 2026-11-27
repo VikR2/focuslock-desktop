@@ -54,6 +54,20 @@ pub fn image_path(pid: u32) -> Option<String> {
     }
 }
 
+/// The process that owns the window you are using right now.
+pub fn foreground_pid() -> Option<u32> {
+    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
+    unsafe {
+        let hwnd = GetForegroundWindow();
+        if hwnd.is_invalid() {
+            return None;
+        }
+        let mut pid = 0u32;
+        GetWindowThreadProcessId(hwnd, Some(&mut pid));
+        (pid != 0).then_some(pid)
+    }
+}
+
 /// Processes that own a visible top-level window, i.e. apps rather than helpers.
 pub fn windowed_pids() -> std::collections::HashSet<u32> {
     use windows::core::BOOL;

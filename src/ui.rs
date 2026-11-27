@@ -4,8 +4,8 @@
 use focuslock::engine::blocker::{self, Event, Plan};
 use focuslock::engine::catalog::{self, AppEntry, IconSource};
 use focuslock::engine::session::{format_clock, now_secs, Phase, Session};
-use focuslock::engine::store::{self, Mode, Rule, State};
-use focuslock::engine::{exe_key, search, win};
+use focuslock::engine::store::{self, Group, GroupApp, Mode, Rule, State};
+use focuslock::engine::{exe_key, is_protected_exe, search, win};
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::component::{h_flex, v_flex, Disableable as _, Icon, IconName, Sizable as _, Theme, ThemeMode};
@@ -104,6 +104,13 @@ fn is_dark(window: &Window) -> bool {
     matches!(window.appearance(), WindowAppearance::Dark | WindowAppearance::VibrantDark)
 }
 
+/// What the main pane shows: the block list, or one focus group.
+#[derive(Clone, PartialEq, Eq)]
+enum View {
+    All,
+    Group(String),
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Scan {
     Loading,
@@ -124,6 +131,12 @@ pub struct FocusLock {
 
     query: Entity<InputState>,
     query_text: String,
+    view: View,
+    group_name: Entity<InputState>,
+    /// The check shown before a group session starts.
+    confirm_start: bool,
+    /// Apps closed this session: (key, name), newest first.
+    closed: Vec<(String, String)>,
     /// The app being unlocked mid-session, and when the wait started.
     unlock: Option<(String, u64)>,
     notice: Option<(String, u64)>,
@@ -145,6 +158,21 @@ impl FocusLock {
             if matches!(event, InputEvent::Change) {
                 this.query_text = state.read(cx).value().to_string();
                 cx.notify();
+            }
+        });
+        let group_name = cx.new(|cx| InputState::new(window, cx).placeholder("Group name"));
+        let name_sub = cx.subscribe_in(&group_name, window, |this, state, event, _, cx| {
+            if matches!(event, InputEvent::Change) {
+                let name = state.read(cx).value().to_string();
+                if let View::Group(id) = this.view.clone() {
+                    if let Some(g) = this.state.groups.iter_mut().find(|g| g.id == id) {
+                        if g.name != name {
+                            g.name = name;
+                            this.commit();
+                            cx.notify();
+                        }
+                    }
+                }
             }
         });
         let theme_sub = cx.observe_window_appearance(window, |this, window, cx| {
@@ -203,16 +231,37 @@ impl FocusLock {
             icons: HashMap::new(),
             query,
             query_text: String::new(),
+            view: View::All,
+            group_name,
+            confirm_start: false,
+            closed: Vec::new(),
             unlock: None,
             notice: None,
             dark,
             focus,
-            _subs: vec![input_sub, theme_sub],
+            _subs: vec![input_sub, name_sub, theme_sub],
             _tick: tick,
         };
         // A session saved before a restart resumes blocking straight away.
         this.finish_if_over();
+        if let Some(id) = this.state.session.as_ref().and_then(|s| s.group.clone()) {
+            this.open_group(&id, window, cx);
+        }
         this.push_plan();
+        // Show the last scan at once; the fresh scan replaces it in the background.
+        let cached = store::load_apps(&store::apps_cache_path(&this.state_path));
+        if !cached.is_empty() {
+            let running = win::apps::running_keys();
+            this.apps = cached
+                .into_iter()
+                .map(|mut a| {
+                    a.running = running.contains(&a.key);
+                    a
+                })
+                .collect();
+            this.scan = Scan::Ready;
+            this.load_icons(this.icon_order(), cx);
+        }
         this.scan_apps(cx);
         this
     }
@@ -227,6 +276,7 @@ impl FocusLock {
         if let Ok(mut plan) = self.plan.lock() {
             plan.rules = self.state.rules.clone();
             plan.session = self.state.session.clone();
+            plan.vault = self.session_group().map(|g| g.apps.iter().map(|a| a.key.clone()).collect());
         }
     }
 
@@ -249,32 +299,36 @@ impl FocusLock {
     fn end_session(&mut self) {
         self.state.session = None;
         self.unlock = None;
+        self.closed.clear();
+        self.confirm_start = false;
         for r in &mut self.state.rules {
             r.allowed_until = None;
         }
         self.commit();
     }
 
-    fn tick(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    fn tick(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         let now = now_secs();
         let mut texts: Vec<String> = Vec::new();
-        let mut warned = false;
         while let Ok(event) = self.events.try_recv() {
             let text = match event {
-                Event::Closed { name } => format!("Closed {name}"),
-                Event::CouldNotClose { name } => format!("Windows didn't let FocusLock close {name}"),
-                Event::Warned { name } => {
-                    warned = true;
-                    format!("{name} is open. You set it to warn during focus")
+                Event::Closed { name, key } => {
+                    let name = self.app(&key).map(|a| a.name.clone()).unwrap_or(name);
+                    self.closed.retain(|(k, _)| *k != key);
+                    self.closed.insert(0, (key, name.clone()));
+                    format!("Closed {name}")
                 }
+                Event::CouldNotClose { name, key } => {
+                    let name = self.app(&key).map(|a| a.name.clone()).unwrap_or(name);
+                    format!("Windows didn't let FocusLock close {name}")
+                }
+                // The blocker already showed a Windows notification; no focus stealing.
+                Event::Warned { name } => format!("{name} is open. You set it to warn during focus"),
             };
             // A browser closes as many processes; name it once.
             if !texts.contains(&text) {
                 texts.push(text);
             }
-        }
-        if warned {
-            window.activate_window();
         }
         // Several apps can trip in the same tick; show them all.
         if !texts.is_empty() {
@@ -291,7 +345,9 @@ impl FocusLock {
     }
 
     fn scan_apps(&mut self, cx: &mut Context<Self>) {
-        self.scan = Scan::Loading;
+        if self.apps.is_empty() {
+            self.scan = Scan::Loading;
+        }
         cx.spawn(async move |this, cx| {
             let apps = cx
                 .background_spawn(async {
@@ -299,17 +355,34 @@ impl FocusLock {
                     catalog::merge(win::apps::scan())
                 })
                 .await;
-            let order = match this.update(cx, |this, cx| {
+            let _ = this.update(cx, |this, cx| {
                 let own = std::env::current_exe().ok().map(|e| exe_key(&e.to_string_lossy()));
-                this.apps = apps.into_iter().filter(|a| Some(&a.key) != own.as_ref()).collect();
-                this.scan = if this.apps.is_empty() { Scan::Failed } else { Scan::Ready };
+                let apps: Vec<AppEntry> = apps.into_iter().filter(|a| Some(&a.key) != own.as_ref()).collect();
+                if apps.is_empty() {
+                    // Keep a cached list on screen rather than an error.
+                    if this.apps.is_empty() {
+                        this.scan = Scan::Failed;
+                    }
+                } else {
+                    let _ = store::save_apps(&store::apps_cache_path(&this.state_path), &apps);
+                    this.apps = apps;
+                    this.scan = Scan::Ready;
+                }
                 cx.notify();
-                this.icon_order()
-            }) {
-                Ok(order) => order,
-                Err(_) => return,
-            };
-            for chunk in order.chunks(12) {
+                let missing: Vec<(String, IconSource)> =
+                    this.icon_order().into_iter().filter(|(k, _)| !this.icons.contains_key(k)).collect();
+                this.load_icons(missing, cx);
+            });
+        })
+        .detach();
+    }
+
+    /// Read icons in the background, in the given order.
+    fn load_icons(&self, order: Vec<(String, IconSource)>, cx: &mut Context<Self>) {
+        cx.spawn(async move |this, cx| {
+            // A small first batch gets blocked and running apps on screen sooner.
+            let (first, rest) = order.split_at(order.len().min(4));
+            for chunk in std::iter::once(first).chain(rest.chunks(12)) {
                 let chunk = chunk.to_vec();
                 let loaded = cx
                     .background_spawn(async move {
@@ -349,8 +422,77 @@ impl FocusLock {
 
     fn start(&mut self) {
         let minutes = self.state.settings.session_minutes;
-        self.state.session = Some(Session::start(now_secs(), minutes * 60, ""));
+        let mut session = Session::start(now_secs(), minutes * 60, "");
+        if let View::Group(id) = &self.view {
+            session.group = Some(id.clone());
+        }
+        self.state.session = Some(session);
+        self.confirm_start = false;
+        self.closed.clear();
         self.commit();
+    }
+
+    /// The group the running session keeps open, if it is a group session.
+    fn session_group(&self) -> Option<&Group> {
+        let id = self.state.session.as_ref()?.group.as_ref()?;
+        self.state.groups.iter().find(|g| &g.id == id)
+    }
+
+    fn viewed_group(&self) -> Option<&Group> {
+        match &self.view {
+            View::Group(id) => self.state.groups.iter().find(|g| &g.id == id),
+            View::All => None,
+        }
+    }
+
+    fn open_group(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let name = self.state.groups.iter().find(|g| g.id == id).map(|g| g.name.clone()).unwrap_or_default();
+        self.view = View::Group(id.to_string());
+        self.confirm_start = false;
+        self.group_name.update(cx, |s, cx| s.set_value(name, window, cx));
+    }
+
+    fn new_group(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let id = format!("g{}", now_secs());
+        let n = self.state.groups.len() + 1;
+        self.state.groups.push(Group { id: id.clone(), name: format!("Group {n}"), apps: Vec::new() });
+        self.commit();
+        self.open_group(&id, window, cx);
+        self.group_name.update(cx, |s, cx| s.focus(window, cx));
+    }
+
+    fn delete_group(&mut self, id: &str) {
+        if self.session_group().is_some_and(|g| g.id == id) {
+            return;
+        }
+        self.state.groups.retain(|g| g.id != id);
+        self.view = View::All;
+        self.commit();
+    }
+
+    /// Add or remove an app from the viewed group. The group of a running
+    /// session can only grow, so it never opens a way out mid-session.
+    fn toggle_in_group(&mut self, key: &str, name: &str) {
+        let running = self.session_group().map(|g| g.id.clone());
+        let View::Group(id) = self.view.clone() else { return };
+        let Some(g) = self.state.groups.iter_mut().find(|g| g.id == id) else { return };
+        if g.has(key) {
+            if running.as_deref() != Some(id.as_str()) {
+                g.apps.retain(|a| a.key != key);
+            }
+        } else {
+            g.apps.push(GroupApp { key: key.into(), name: name.into() });
+        }
+        self.commit();
+    }
+
+    /// Open apps a group session would close now.
+    fn would_close(&self, g: &Group) -> Vec<String> {
+        self.apps
+            .iter()
+            .filter(|a| a.running && !g.has(&a.key) && !is_protected_exe(&exe_key(&a.exe_path)))
+            .map(|a| a.name.clone())
+            .collect()
     }
 
     fn pause_or_resume(&mut self) {
@@ -400,7 +542,9 @@ impl FocusLock {
 
     fn unlock_now(&mut self, key: &str) {
         let until = now_secs() + self.state.settings.unlock_minutes * 60;
-        if let Some(r) = self.state.rules.iter_mut().find(|r| r.key == key) {
+        if let Some(s) = self.state.session.as_mut().filter(|s| s.group.is_some()) {
+            s.allowed.push((key.to_string(), until));
+        } else if let Some(r) = self.state.rules.iter_mut().find(|r| r.key == key) {
             r.allowed_until = Some(until);
         }
         self.unlock = None;
@@ -500,7 +644,10 @@ impl FocusLock {
                     .min_w_0()
                     .text_size(px(13.))
                     .text_color(p.text)
-                    .child(format!("{name} stays locked until this session ends.")),
+                    .child(match self.session_group() {
+                Some(g) => format!("{name} is outside {}. It stays closed until this session ends.", g.name),
+                None => format!("{name} stays locked until this session ends."),
+            }),
             )
             .child(self.btn(format!("keep-{key}"), "Keep locked", false).on_click(cx.listener(|this, _, _, cx| {
                 this.unlock = None;
@@ -652,12 +799,217 @@ impl FocusLock {
         body
     }
 
+    fn sidebar(&self, p: Pal, cx: &mut Context<Self>) -> Div {
+        let item = |id: SharedString, selected: bool| {
+            h_flex()
+                .id(id)
+                .gap_2()
+                .h(px(36.))
+                .px_3()
+                .mx_2()
+                .rounded(px(R_CTRL))
+                .cursor_pointer()
+                .text_size(px(13.))
+                .when(selected, |d| d.bg(p.accent_soft).text_color(p.text).font_weight(FontWeight::MEDIUM))
+                .when(!selected, |d| d.text_color(p.muted).hover(|s| s.bg(p.hover).text_color(p.text)))
+        };
+        let mut col = v_flex()
+            .w(px(220.))
+            .flex_none()
+            .h_full()
+            .pt_3()
+            .gap_1()
+            .bg(p.panel)
+            .border_r_1()
+            .border_color(p.border)
+            .child(item("nav-all".into(), self.view == View::All).child("All apps").on_click(cx.listener(|this, _, _, cx| {
+                this.view = View::All;
+                this.confirm_start = false;
+                cx.notify();
+            })))
+            .child(div().px_5().pt_4().pb_1().text_size(px(12.)).font_weight(FontWeight::SEMIBOLD).text_color(p.muted).child("Groups"));
+        let active = self.session_group().map(|g| g.id.clone());
+        for g in &self.state.groups {
+            let id = g.id.clone();
+            let mut icons = h_flex().flex_none();
+            for a in g.apps.iter().take(3) {
+                icons = icons.child(div().mr(px(-5.)).child(self.icon(&a.key, &a.name, 18., p)));
+            }
+            let count = if active.as_deref() == Some(g.id.as_str()) { "On".to_string() } else { g.apps.len().to_string() };
+            col = col.child(
+                item(SharedString::from(format!("nav-{}", g.id)), self.view == View::Group(g.id.clone()))
+                    .child(icons)
+                    .child(div().flex_1().min_w_0().ml_2().truncate().child(g.name.clone()))
+                    .child(div().text_size(px(12.)).text_color(p.muted).child(count))
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        this.open_group(&id, window, cx);
+                        cx.notify();
+                    })),
+            );
+        }
+        col.child(item("nav-new".into(), false).child("+ New group").on_click(cx.listener(|this, _, window, cx| {
+            this.new_group(window, cx);
+            cx.notify();
+        })))
+    }
+
+    fn group_page(&self, g: &Group, p: Pal, cx: &mut Context<Self>) -> Div {
+        let running_here = self.session_group().is_some_and(|s| s.id == g.id);
+        let in_session = self.state.session.is_some();
+        let mut body = v_flex().px_4().pb_4();
+
+        let gid = g.id.clone();
+        body = body.child(
+            h_flex()
+                .gap_3()
+                .pt_4()
+                .pb_2()
+                .px_2()
+                .child(div().flex_1().child(Input::new(&self.group_name).large()))
+                .when(!running_here, |d| {
+                    d.child(self.btn("delete-group", "Delete group", false).on_click(cx.listener(move |this, _, _, cx| {
+                        this.delete_group(&gid);
+                        cx.notify();
+                    })))
+                }),
+        );
+
+        if self.confirm_start && !in_session {
+            let closing = self.would_close(g);
+            let text = if closing.is_empty() {
+                format!("Nothing else is open. Apps outside {} will close if they open.", g.name)
+            } else {
+                format!("Starting {} closes {} open apps: {}. Save your work first.", g.name, closing.len(), closing.join(", "))
+            };
+            body = body.child(
+                h_flex()
+                    .gap_3()
+                    .mx_2()
+                    .p_3()
+                    .rounded(px(R_BOX))
+                    .bg(p.warn_soft)
+                    .child(div().flex_1().min_w_0().text_size(px(13.)).child(text))
+                    .child(self.btn("cancel-start", "Cancel", false).on_click(cx.listener(|this, _, _, cx| {
+                        this.confirm_start = false;
+                        cx.notify();
+                    })))
+                    .child(self.btn("confirm-start", format!("Start {}", g.name), true).on_click(cx.listener(|this, _, _, cx| {
+                        this.start();
+                        cx.notify();
+                    }))),
+            );
+        }
+
+        body = body.child(self.section("Stays open", p));
+        if g.apps.is_empty() {
+            body = body.child(self.message_row("Search above and add the apps you keep during focus.".into(), None, p));
+        }
+        for a in &g.apps {
+            let app = self.app(&a.key);
+            let sub = app.filter(|x| x.running).map(|_| "Running".to_string());
+            let name = app.map(|x| x.name.clone()).unwrap_or(a.name.clone());
+            let (k, n) = (a.key.clone(), a.name.clone());
+            body = body.child(self.plain_row(&a.key, &name, sub, p).when(!running_here, |d| {
+                d.child(
+                    self.btn(format!("remove-{}", a.key), "Remove", false).on_click(cx.listener(move |this, _, _, cx| {
+                        this.toggle_in_group(&k, &n);
+                        cx.notify();
+                    })),
+                )
+            }));
+        }
+
+        let query = self.query_text.trim().to_string();
+        if !query.is_empty() {
+            body = body.child(self.section(&format!("Add to {}", g.name), p));
+            let hits: Vec<AppEntry> = search::filter(&self.apps, &query)
+                .into_iter()
+                .map(|i| self.apps[i].clone())
+                .filter(|a| !g.has(&a.key))
+                .take(30)
+                .collect();
+            if hits.is_empty() {
+                body = body.child(self.message_row(format!("No app matches \"{query}\""), None, p));
+            }
+            for a in hits {
+                let (k, n) = (a.key.clone(), a.name.clone());
+                let sub = Some(if a.running { "Running".to_string() } else { exe_label(&a) });
+                body = body.child(self.plain_row(&a.key, &a.name, sub, p).child(
+                    self.btn(format!("add-{}", a.key), "Add", false).on_click(cx.listener(move |this, _, _, cx| {
+                        this.toggle_in_group(&k, &n);
+                        cx.notify();
+                    })),
+                ));
+            }
+        } else if running_here {
+            if !self.closed.is_empty() {
+                body = body.child(self.section("Closed this session", p));
+            }
+            for (key, name) in self.closed.clone() {
+                let allowed = self.state.session.as_ref().is_some_and(|s| s.is_allowed(&key, now_secs()));
+                let unlocking = self.unlock.as_ref().is_some_and(|u| u.0 == key);
+                let k = key.clone();
+                let row = self.plain_row(&key, &name, allowed.then(|| "Unlocked for now".to_string()), p).when(!allowed && !unlocking, |d| {
+                    d.child(self.btn(format!("unlock-closed-{key}"), "Unlock", false).on_click(cx.listener(move |this, _, _, cx| {
+                        this.unlock = Some((k.clone(), now_secs()));
+                        cx.notify();
+                    })))
+                });
+                body = body.child(row);
+                if unlocking {
+                    body = body.child(div().px_2().pb_2().child(self.unlock_strip(&key, &name, p, cx)));
+                }
+            }
+        } else {
+            let open: Vec<AppEntry> = self.apps.iter().filter(|a| a.running && !g.has(&a.key)).cloned().collect();
+            if !open.is_empty() {
+                body = body.child(self.section("Open now, will close", p));
+            }
+            for a in open {
+                let (k, n) = (a.key.clone(), a.name.clone());
+                body = body.child(self.plain_row(&a.key, &a.name, None, p).child(
+                    self.btn(format!("keep-{}", a.key), "Keep open", false).on_click(cx.listener(move |this, _, _, cx| {
+                        this.toggle_in_group(&k, &n);
+                        cx.notify();
+                    })),
+                ));
+            }
+        }
+        body
+    }
+
+    /// Icon, name and an optional subtitle; callers add the trailing control.
+    fn plain_row(&self, key: &str, name: &str, subtitle: Option<String>, p: Pal) -> Stateful<Div> {
+        h_flex()
+            .id(SharedString::from(format!("prow-{key}")))
+            .gap_3()
+            .h(px(48.))
+            .px_2()
+            .rounded(px(R_CTRL))
+            .hover(|s| s.bg(p.hover))
+            .child(self.icon(key, name, 26., p))
+            .child(
+                v_flex()
+                    .flex_1()
+                    .min_w_0()
+                    .child(div().text_size(px(14.)).text_color(p.text).truncate().child(name.to_string()))
+                    .when_some(subtitle, |d, s| d.child(div().text_size(px(12.)).text_color(p.muted).truncate().child(s))),
+            )
+    }
+
     fn session_bar(&self, p: Pal, cx: &mut Context<Self>) -> Div {
         let now = now_secs();
         let phase = self.state.session.as_ref().map(|s| s.phase(now));
         let (clock, status) = match (&self.state.session, phase) {
-            (Some(s), Some(Phase::Running)) => (format_clock(s.left(now)), format!("Blocking until {}", local_hm(s.ends_at))),
+            (Some(s), Some(Phase::Running)) => (
+                format_clock(s.left(now)),
+                match self.session_group() {
+                    Some(g) => format!("Only {} until {}", g.name, local_hm(s.ends_at)),
+                    None => format!("Blocking until {}", local_hm(s.ends_at)),
+                },
+            ),
             (Some(s), Some(Phase::Paused)) => (format_clock(s.left(now)), "Paused. Apps are not blocked".into()),
+            _ if self.viewed_group().is_some() => (format_clock(self.state.settings.session_minutes * 60), "Only this group stays open".into()),
             _ if self.state.rules.is_empty() => (format_clock(self.state.settings.session_minutes * 60), "Pick apps to block below".into()),
             _ => (format_clock(self.state.settings.session_minutes * 60), "Ready".into()),
         };
@@ -691,13 +1043,23 @@ impl FocusLock {
                             })),
                     );
                 }
-                let start = self
-                    .btn("start", "Start focus", true)
-                    .disabled(self.state.rules.is_empty())
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.start();
-                        cx.notify();
-                    }));
+                let start = match self.viewed_group() {
+                    // A group session closes apps, so it starts through a check.
+                    Some(g) => self
+                        .btn("start", format!("Start {}", g.name), true)
+                        .disabled(g.apps.is_empty())
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.confirm_start = true;
+                            cx.notify();
+                        })),
+                    None => self
+                        .btn("start", "Start focus", true)
+                        .disabled(self.state.rules.is_empty())
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.start();
+                            cx.notify();
+                        })),
+                };
                 v_flex().gap_1().items_end().child(presets).child(start)
             }
             Some(ph) => v_flex().items_end().child(
@@ -784,15 +1146,33 @@ impl Render for FocusLock {
             .font_family("Segoe UI")
             .bg(p.bg)
             .text_color(p.text)
-            .child(self.session_bar(p, cx))
-            .child(self.progress_line(p))
             .child(
-                div()
-                    .relative()
-                    .flex_1()
-                    .min_h_0()
-                    .child(div().id("app-list").size_full().overflow_y_scroll().child(self.list(p, cx).pb(px(64.))))
-                    .when_some(notice, |d, n| d.child(n)),
+                h_flex()
+                    .items_stretch()
+                    .size_full()
+                    .child(self.sidebar(p, cx))
+                    .child(
+                        v_flex()
+                            .flex_1()
+                            .min_w_0()
+                            .h_full()
+                            .child(self.session_bar(p, cx))
+                            .child(self.progress_line(p))
+                            .child(
+                                div()
+                                    .relative()
+                                    .flex_1()
+                                    .min_h_0()
+                                    .child(div().id("app-list").size_full().overflow_y_scroll().child(
+                                        match self.viewed_group().cloned() {
+                                            Some(g) => self.group_page(&g, p, cx),
+                                            None => self.list(p, cx),
+                                        }
+                                        .pb(px(64.)),
+                                    ))
+                                    .when_some(notice, |d, n| d.child(n)),
+                            ),
+                    ),
             )
     }
 }
@@ -816,6 +1196,7 @@ fn local_hm(unix: u64) -> String {
 }
 
 pub fn run() {
+    win::notify::register();
     gpui_kit::application().with_assets(gpui_kit::assets::Assets).run(|cx| {
         gpui_kit::init(cx);
         cx.bind_keys([

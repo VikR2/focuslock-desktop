@@ -1613,6 +1613,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 name = "focuslock"
 version = "2.0.0"
 dependencies = [
+ "embed-resource",
  "gpui-kit",
  "image",
  "serde",
