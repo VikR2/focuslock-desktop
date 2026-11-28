@@ -1,12 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
-  <!-- 16-24 px variant: case, plain dial, four markers, bold lock. -->
-  <circle cx="128" cy="128" r="126" fill="#9aa2ad"/>
-  <circle cx="128" cy="128" r="112" fill="#1d2128"/>
-  <line x1="128.0" y1="28.0" x2="128.0" y2="50.0" stroke="#dfe3e8" stroke-width="14" stroke-linecap="round"/>
-  <line x1="228.0" y1="128.0" x2="206.0" y2="128.0" stroke="#dfe3e8" stroke-width="14" stroke-linecap="round"/>
-  <line x1="128.0" y1="228.0" x2="128.0" y2="206.0" stroke="#dfe3e8" stroke-width="14" stroke-linecap="round"/>
-  <line x1="28.0" y1="128.0" x2="50.0" y2="128.0" stroke="#dfe3e8" stroke-width="14" stroke-linecap="round"/>
-  <path d="M98 132 V108 a30 30 0 0 1 60 0 V132" fill="none" stroke="#e6e9ee" stroke-width="20" stroke-linecap="round"/>
-  <circle cx="128" cy="152" r="44" fill="#3B8CFF"/>
-  <circle cx="128" cy="152" r="11" fill="#16181C"/>
+  <!-- 16-48 px variant (taskbar, title bar): no batons, the lock fills the dial. -->
+  <defs>
+    <linearGradient id="case" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4f6f8"/><stop offset="0.5" stop-color="#b3bac4"/><stop offset="1" stop-color="#7a828d"/>
+    </linearGradient>
+    <radialGradient id="dial" cx="0.4" cy="0.32" r="0.8">
+      <stop offset="0" stop-color="#4d9dff"/><stop offset="0.65" stop-color="#1f66d9"/><stop offset="1" stop-color="#13409a"/>
+    </radialGradient>
+    <linearGradient id="shackle" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#cfd5dd"/><stop offset="0.45" stop-color="#ffffff"/><stop offset="1" stop-color="#b4bcc6"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dfe5ec"/>
+    </linearGradient>
+  </defs>
+  <circle cx="128" cy="128" r="127" fill="url(#case)"/>
+  <circle cx="128" cy="128" r="114" fill="url(#dial)"/>
+  <path d="M90 120 V82 a38 38 0 0 1 76 0 V120" fill="none" stroke="url(#shackle)" stroke-width="28" stroke-linecap="round"/>
+  <rect x="58.0" y="112" width="140" height="108" rx="22" fill="url(#body)"/>
+  <circle cx="128" cy="157.4" r="18" fill="#13409a"/>
+  <path d="M118.1 157.4 L122.2 187.4 H133.8 L137.9 157.4 Z" fill="#13409a"/>
 </svg>
